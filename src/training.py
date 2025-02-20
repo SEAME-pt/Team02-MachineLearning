@@ -39,7 +39,7 @@ criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 if __name__ == "__main__":
-    num_epochs = 4
+    num_epochs = 20
     batch_size = 8
 
     for epoch in range(num_epochs):
