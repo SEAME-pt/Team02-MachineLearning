@@ -23,7 +23,7 @@ model = LaneSegmentationModel().to(device)
 model.load_state_dict(torch.load('lane_segmentation.pth', map_location=device))
 model.eval()
 
-cap = cv2.VideoCapture("assets/road.mp4")
+cap = cv2.VideoCapture("assets/road1.mp4")
 
 while True:
     ret, frame = cap.read()
