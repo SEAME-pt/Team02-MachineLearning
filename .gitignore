@@ -44,3 +44,6 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
+src/OpenCV/assets/*
+src/OpenCV/__pycache__/*
+lane_segmentation.pth
