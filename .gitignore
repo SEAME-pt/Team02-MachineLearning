@@ -46,4 +46,5 @@ _deps
 CMakeUserPresets.json
 src/OpenCV/assets/*
 src/OpenCV/__pycache__/*
+env/*
 lane_segmentation.pth

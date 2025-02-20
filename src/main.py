@@ -9,8 +9,16 @@ from PIL import Image
 from torchvision import transforms
 
 # Initialize model
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-print(f"Using device: {device}")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    torch.backends.cudnn.benchmark = True  # Optimize CUDA performance
+    print(f"Using CUDA device: {torch.cuda.get_device_name()}")
+elif torch.backends.mps.is_available():  # For Apple Silicon
+    device = torch.device("mps")
+    print("Using MPS (Metal Performance Shaders)")
+else:
+    device = torch.device("cpu")
+    print("Using CPU")
 model = LaneSegmentationModel().to(device)
 model.load_state_dict(torch.load('lane_segmentation.pth', map_location=device))
 model.eval()
