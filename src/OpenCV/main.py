@@ -5,6 +5,8 @@ import glob
 from Model import LaneSegmentationModel
 from Dataset import get_image_transform
 from utils import visualize_output_batch
+from PIL import Image
+from torchvision import transforms
 
 # Initialize model
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -13,25 +15,36 @@ model = LaneSegmentationModel().to(device)
 model.load_state_dict(torch.load('lane_segmentation.pth', map_location=device))
 model.eval()
 
-image_dir = "assets/images"  # Update this to your images directory
-image_paths = glob.glob(f"{image_dir}/*.jpg") + glob.glob(f"{image_dir}/*.png")
+cap = cv2.VideoCapture("assets/road.mp4")
 
-for img_path in image_paths:
-    # Read image
-    frame = cv2.imread(img_path)
-    if frame is None:
-        print(f"Could not read image: {img_path}")
-        continue
-        
-    height, width, _ = frame.shape
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
     
-    image = cv2.resize(frame, (256, 512))
-    transform = get_image_transform()
-    image = transform(image).unsqueeze(0).to(device)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
+    transforms = get_image_transform()
+    input_tensor = transforms(rgb_frame).unsqueeze(0).to(device)
+    
+    # Run inference.
     with torch.no_grad():
-        outputs = model(image)
-
-        visualize_output_batch(image, outputs)
+        output = model(input_tensor)
+    
+    output_mask = output.squeeze().cpu().numpy()
+    binary_mask = (output_mask > 0.5).astype(np.uint8) * 255
+    
+    # Resize the mask to the original frame dimensions.
+    mask_resized = cv2.resize(binary_mask, (frame.shape[1], frame.shape[0]))
+    
+    # Create a copy of the original frame.
+    blended = frame.copy()
+    # Replace pixels where the mask is non-zero with green (BGR: [0,255,0]).
+    blended[mask_resized > 0] = [0, 255, 0]
+    
+    # Display the result.
+    cv2.imshow("Lane Detection", blended)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
 cv2.destroyAllWindows()
