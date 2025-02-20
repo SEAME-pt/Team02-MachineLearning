@@ -10,28 +10,37 @@ from utils import visualize_batch
 
 dataset = TuSimpleDataset(
     json_paths=[
-        "/Users/ruipedropires/.cache/kagglehub/datasets/manideep1108/tusimple/versions/5/TUSimple/train_set/label_data_0313.json",
-        "/Users/ruipedropires/.cache/kagglehub/datasets/manideep1108/tusimple/versions/5/TUSimple/train_set/label_data_0531.json",
-        "/Users/ruipedropires/.cache/kagglehub/datasets/manideep1108/tusimple/versions/5/TUSimple/train_set/label_data_0601.json"
+        "/home/luis_t2/OpenCV/assets/TUSimple/train_set/label_data_0313.json",
+        "/home/luis_t2/OpenCV/assets/TUSimple/train_set/label_data_0531.json",
+        "/home/luis_t2/OpenCV/assets/TUSimple/train_set/label_data_0601.json"
     ],
-    img_dir="/Users/ruipedropires/.cache/kagglehub/datasets/manideep1108/tusimple/versions/5/TUSimple/train_set",
+    img_dir="/home/luis_t2/OpenCV/assets/TUSimple/train_set/",
 )
 
 dataloader = DataLoader(
     dataset,
-    batch_size=16,
+    batch_size=8,
     shuffle=True
 )
 
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    torch.backends.cudnn.benchmark = True  # Optimize CUDA performance
+    print(f"Using CUDA device: {torch.cuda.get_device_name()}")
+elif torch.backends.mps.is_available():  # For Apple Silicon
+    device = torch.device("mps")
+    print("Using MPS (Metal Performance Shaders)")
+else:
+    device = torch.device("cpu")
+    print("Using CPU")
 model = LaneSegmentationModel().to(device)
 
 criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 if __name__ == "__main__":
-    num_epochs = 1
-    batch_size = 16
+    num_epochs = 4
+    batch_size = 8
 
     for epoch in range(num_epochs):
         model.train()
@@ -46,7 +55,7 @@ if __name__ == "__main__":
             optimizer.step()
             
             if (batch_idx + 1) % 5 == 0:
-                visualize_batch(images, masks, outputs)
+                # visualize_batch(images, masks, outputs)
                 print(f"Epoch [{epoch+1}/{num_epochs}], "
                       f"Loss: {loss.item():.4f}")
 
