@@ -40,15 +40,20 @@ while True:
         output = model(input_tensor)
     
     output_mask = output.squeeze().cpu().numpy()
-    binary_mask = (output_mask > 0.5).astype(np.uint8) * 255
+    binary_mask = (output_mask > 0.6).astype(np.uint8) * 255
+
+    kernel = np.ones((3,3), np.uint8)
+    binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel)  # Remove noise
+    binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel) 
     
     # Resize the mask to the original frame dimensions.
     mask_resized = cv2.resize(binary_mask, (frame.shape[1], frame.shape[0]))
     
     # Create a copy of the original frame.
-    blended = frame.copy()
-    # Replace pixels where the mask is non-zero with green (BGR: [0,255,0]).
-    blended[mask_resized > 0] = [0, 255, 0]
+    overlay = frame.copy()
+    overlay[mask_resized > 0] = [0, 255, 0]
+    alpha = 0.4  # Transparency factor
+    blended = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
     
     # Display the result.
     cv2.imshow("Lane Detection", blended)
