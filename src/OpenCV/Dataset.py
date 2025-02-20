@@ -15,6 +15,7 @@ def get_binary_labels(height, width, pts, thickness=5):
             isClosed=False,
             color=1,
             thickness=thickness)
+
     return bin_img.astype(np.float32)[None, ...]   
 
 def get_image_transform():
@@ -29,16 +30,14 @@ def get_image_transform():
 
 class TuSimpleDataset(Dataset):
     def __init__(self, json_paths, img_dir, width=512, height=256, 
-                 thickness=5, max_lanes=4):
+                 thickness=5):
         self.samples = []
         self.width = width
         self.height = height
         self.thickness = thickness
-        self.max_lanes = max_lanes
         self.img_dir = img_dir
         self.transform = get_image_transform()
 
-        # Load all samples from JSON files
         for json_path in json_paths:
             with open(json_path, 'r') as f:
                 for line in f:
@@ -55,6 +54,7 @@ class TuSimpleDataset(Dataset):
         image = cv2.imread(file_path)
         if image is None:
             raise ValueError(f"Could not read image: {file_path}")
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             
         width_org = image.shape[1]
         height_org = image.shape[0]

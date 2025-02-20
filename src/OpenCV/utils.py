@@ -33,7 +33,6 @@ def visualize_batch(images, masks=None, outputs=None):
         pred = torch.sigmoid(outputs[0]).cpu().detach().numpy()
         plt.subplot(133)
         plt.imshow(pred[0], cmap='jet')
-        plt.colorbar()
         plt.title('Prediction')
         plt.axis('off')
     
@@ -65,7 +64,6 @@ def visualize_output_batch(image, outputs=None):
         pred = torch.sigmoid(outputs[0]).cpu().detach().numpy()  # Changed to sigmoid for single channel
         plt.subplot(132)
         plt.imshow(pred[0], cmap='jet')
-        plt.colorbar()
         plt.title('Prediction')
         plt.axis('off')
     
