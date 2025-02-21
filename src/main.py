@@ -70,6 +70,23 @@ checkpoint = torch.load("best_lane_segmentation.pth")
 model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
 
+dummy_input = torch.randn(1, 3, 256, 256).to(device)
+torch.onnx.export(
+    model,                     
+    dummy_input,              
+    "lane_segmentation.onnx", 
+    export_params=True,       
+    opset_version=11,        
+    do_constant_folding=True, 
+    input_names=['input'],    
+    output_names=['output'],  
+    dynamic_axes={
+        'input': {0: 'batch_size'},
+        'output': {0: 'batch_size'}
+    }
+)
+print("Model exported to ONNX format!")
+
 cap = cv2.VideoCapture("assets/road1.mp4")
 post_processor = PostProcessor()
 
