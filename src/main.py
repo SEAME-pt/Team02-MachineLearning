@@ -22,8 +22,9 @@ else:
 model = LaneSegmentationModel().to(device)
 checkpoint = torch.load("best_lane_segmentation.pth")
 model.load_state_dict(checkpoint['model_state_dict'])
+model.eval()
 
-cap = cv2.VideoCapture("assets/road1.mp4")
+cap = cv2.VideoCapture("assets/road3.mp4")
 
 while True:
     ret, frame = cap.read()
@@ -42,7 +43,7 @@ while True:
     output_mask = output.squeeze().cpu().numpy()
     binary_mask = (output_mask > 0.6).astype(np.uint8) * 255
 
-    kernel = np.ones((3,3), np.uint8)
+    kernel = np.ones((4,4), np.uint8)
     binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel)  # Remove noise
     binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel) 
     
@@ -52,7 +53,7 @@ while True:
     # Create a copy of the original frame.
     overlay = frame.copy()
     overlay[mask_resized > 0] = [0, 255, 0]
-    alpha = 0.4  # Transparency factor
+    alpha = 1  # Transparency factor
     blended = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
     
     # Display the result.
