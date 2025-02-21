@@ -41,9 +41,14 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 if __name__ == "__main__":
     num_epochs = 20
     batch_size = 8
+    best_loss = float('inf')
+    best_model_path = "best_lane_segmentation.pth"
 
     for epoch in range(num_epochs):
         model.train()
+        epoch_loss = 0.0
+        batch_count = 0
+
         for batch_idx, (images, masks) in enumerate(dataloader):
             images = images.to(device)
             masks = masks.to(device)
@@ -53,11 +58,29 @@ if __name__ == "__main__":
             loss = criterion(outputs, masks)
             loss.backward()
             optimizer.step()
+
+            epoch_loss += loss.item()
+            batch_count += 1
             
             if (batch_idx + 1) % 5 == 0:
                 # visualize_batch(images, masks, outputs)
                 print(f"Epoch [{epoch+1}/{num_epochs}], "
                       f"Loss: {loss.item():.4f}")
 
+    # Calculate average loss for the epoch
+        avg_epoch_loss = epoch_loss / batch_count
+        print(f"Epoch [{epoch+1}/{num_epochs}] Average Loss: {avg_epoch_loss:.4f}")
+
+        # Save the model if it has the best loss so far
+        if avg_epoch_loss < best_loss:
+            best_loss = avg_epoch_loss
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': best_loss,
+            }, best_model_path)
+            print(f"Saved new best model with loss: {best_loss:.4f}")
+
     print("Training finished!")
-    torch.save(model.state_dict(), "lane_segmentation.pth")
+    print(f"Best model saved with loss: {best_loss:.4f}")
