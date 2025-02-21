@@ -20,8 +20,8 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 model = LaneSegmentationModel().to(device)
-model.load_state_dict(torch.load('lane_segmentation.pth', map_location=device))
-model.eval()
+checkpoint = torch.load("best_lane_segmentation.pth")
+model.load_state_dict(checkpoint['model_state_dict'])
 
 cap = cv2.VideoCapture("assets/road1.mp4")
 
