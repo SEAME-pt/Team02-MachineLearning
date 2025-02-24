@@ -44,3 +44,8 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
+src/assets/*
+src/__pycache__/*
+src/best_lane_segmentation.pth
+env/*
+lane_segmentation.pth
