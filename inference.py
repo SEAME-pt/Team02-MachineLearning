@@ -19,8 +19,8 @@ else:
     print("Using CPU")
 
 # Load the trained model
-model = LaneSegmentationModel().to(device)
-model.load_state_dict(torch.load('lane_model_epoch_1.pth', map_location=device))
+model = LaneSegmentationModel(num_classes=1).to(device)
+model.load_state_dict(torch.load('lane_model_epoch_5.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function

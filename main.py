@@ -21,17 +21,17 @@ def main():
     
     # Dataset paths
     json_paths =[
-        "/Users/ruipedropires/SEAME/LaneNet/assets/TUSimple/train_set/label_data_0313.json",
-        "/Users/ruipedropires/SEAME/LaneNet/assets/TUSimple/train_set/label_data_0531.json",
-        "/Users/ruipedropires/SEAME/LaneNet/assets/TUSimple/train_set/label_data_0601.json"
+        "/home/luis_t2/LaneNet/assets/TUSimple/train_set/label_data_0313.json",
+        "/home/luis_t2/LaneNet/assets/TUSimple/train_set/label_data_0531.json",
+        "/home/luis_t2/LaneNet/assets/TUSimple/train_set/label_data_0601.json"
     ]
-    img_dir = "/Users/ruipedropires/SEAME/LaneNet/assets/TUSimple/train_set/"
+    img_dir = "/home/luis_t2/LaneNet/assets/TUSimple/train_set/"
     
     # Create dataset with augmentation
     full_dataset = TuSimpleDataset(json_paths, img_dir, width=512, height=256, is_train=True)
     
-    # Split dataset into training and validation sets (90/10 split)
-    train_size = int(0.9 * len(full_dataset))
+    # Split dataset into training and validation sets (80/20 split)
+    train_size = int(0.8 * len(full_dataset))
     val_size = len(full_dataset) - train_size
     train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
     
@@ -46,10 +46,10 @@ def main():
     model = LaneSegmentationModel().to(device)
     
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
     
     # Train model
-    model = train_model(model, train_loader, val_loader, criterion, optimizer, device, epochs=5)
+    model = train_model(model, train_loader, val_loader, criterion, optimizer, device, epochs=10)
     
     # Save model
     torch.save(model.state_dict(), 'lane_detection_model.pth')

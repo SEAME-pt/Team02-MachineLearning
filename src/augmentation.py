@@ -14,9 +14,17 @@ class LaneDetectionAugmentation:
         
         if is_train:
             self.transform = A.Compose([
+                # Resize to target resolution
+                A.Resize(height=self.height, width=self.width),
+                
                 # Spatial transforms
                 A.HorizontalFlip(p=0.5),
-                A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-10, 10), p=0.5),  # Replaced ShiftScaleRotate
+                A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-10, 10), p=0.5),
+                
+                # TUSimple-specific augmentations - focus on bottom portion of images
+                A.RandomShadow(shadow_roi=(0, 0.5, 1, 1), p=0.3),  # Shadows on road surface
+                A.CoarseDropout(max_holes=8, max_height=32, max_width=32, 
+                                min_height=8, min_width=8, fill_value=0, p=0.3),
                 
                 # Color transforms
                 A.OneOf([
@@ -25,11 +33,18 @@ class LaneDetectionAugmentation:
                     A.RandomGamma(gamma_limit=(80, 120))
                 ], p=0.5),
                 
-                # Blur and noise - fixed parameter names
+                # Weather simulation
+                A.OneOf([
+                    A.RandomRain(blur_value=3, p=0.5),
+                    A.RandomFog(fog_coef_lower=0.1, fog_coef_upper=0.3, p=0.5),
+                ], p=0.3),
+                
+                # Blur and noise
                 A.OneOf([
                     A.MotionBlur(blur_limit=3),
                     A.MedianBlur(blur_limit=3),
                     A.GaussianBlur(blur_limit=3),
+                    A.GaussNoise(var_limit=(10, 50)),
                 ], p=0.3),
                 
                 # Normalization and conversion to tensor
@@ -39,6 +54,7 @@ class LaneDetectionAugmentation:
         else:
             # Validation transformations - only normalize
             self.transform = A.Compose([
+                A.Resize(height=self.height, width=self.width),  # Add this
                 A.Normalize(mean=self.mean, std=self.std),
                 ToTensorV2()
             ])
