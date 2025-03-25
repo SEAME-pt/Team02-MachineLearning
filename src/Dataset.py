@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import torch
 import torchvision.transforms as transforms
+from src.augmentation import LaneDetectionAugmentation
 from torch.utils.data import Dataset
 
 def get_binary_labels(height, width, pts, thickness=5):
@@ -29,19 +30,41 @@ def get_image_transform():
     return transform
 
 class TuSimpleDataset(Dataset):
-    def __init__(self, json_paths, img_dir, width=512, height=256, 
-                 thickness=5):
-        self.samples = []
+    def __init__(self, json_paths, img_dir, width=512, height=256, is_train=True, thickness=5):
+        """
+        TuSimple Dataset for lane detection
+        
+        Args:
+            json_paths: List of json files containing lane annotations
+            img_dir: Directory containing the images
+            width: Target image width
+            height: Target image height
+            is_train: Whether this is for training (enables augmentations)
+            thickness: Thickness of lane lines in the binary mask
+        """
         self.width = width
         self.height = height
         self.thickness = thickness
         self.img_dir = img_dir
         self.transform = get_image_transform()
 
+        # Initialize augmentation
+        self.augmentation = LaneDetectionAugmentation(
+            height=height, 
+            width=width,
+            is_train=is_train
+        )
+        
+        # Load all samples from all json files
+        self.samples = []
         for json_path in json_paths:
             with open(json_path, 'r') as f:
                 for line in f:
-                    self.samples.append(json.loads(line))
+                    sample = json.loads(line)
+                    self.samples.append(sample)
+        
+        print(f"Loaded {len(self.samples)} samples with augmentation {'enabled' if is_train else 'disabled'}")
+
 
     def __len__(self):
         return len(self.samples)
@@ -85,8 +108,5 @@ class TuSimpleDataset(Dataset):
         bin_labels = get_binary_labels(self.height, self.width, pts,
                                     thickness=self.thickness)
 
-        image = self.transform(image)
-
-        bin_labels = torch.Tensor(bin_labels)
-
-        return image, bin_labels
+        # Apply augmentation and return
+        return self.augmentation(image, bin_labels)
