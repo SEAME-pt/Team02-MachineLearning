@@ -6,3 +6,4 @@ pandas
 numpy
 opencv-python
 albumentations
+onnx

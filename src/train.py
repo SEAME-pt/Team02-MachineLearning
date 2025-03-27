@@ -15,9 +15,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, e
         optimizer: Optimizer
         device: Device to train on
         epochs: Number of epochs to train for
-        
-    Returns:
-        Trained model
     """
     best_val_loss = float('inf')
     
@@ -76,7 +73,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, e
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             print(f'  Validation loss improved! Saving model...')
-            torch.save(model.state_dict(), f'lane_model_epoch_{epoch+1}.pth')
+            torch.save(model.state_dict(), f'Models/lane_model8_epoch_{epoch+1}.pth')
     
     print(f'Training completed. Best validation loss: {best_val_loss:.4f}')
-    return model

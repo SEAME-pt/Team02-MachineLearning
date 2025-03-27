@@ -17,34 +17,81 @@ class LaneDetectionAugmentation:
                 # Resize to target resolution
                 A.Resize(height=self.height, width=self.width),
                 
-                # Spatial transforms
+                # Basic spatial transforms - increase rotation range for sharp turns
                 A.HorizontalFlip(p=0.5),
-                A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-10, 10), p=0.5),
+
+                A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-45, 45), p=0.5),
                 
-                # TUSimple-specific augmentations - focus on bottom portion of images
-                A.RandomShadow(shadow_roi=(0, 0.5, 1, 1), p=0.3),  # Shadows on road surface
-                A.CoarseDropout(max_holes=8, max_height=32, max_width=32, 
-                                min_height=8, min_width=8, fill_value=0, p=0.3),
-                
-                # Color transforms
+                # Simulate reflections on floor (specular highlights) and shadows
                 A.OneOf([
-                    A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2),
-                    A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20),
-                    A.RandomGamma(gamma_limit=(80, 120))
+                    A.RandomSunFlare(
+                        flare_roi=(0.0, 0.0, 1.0, 0.5),
+                        src_radius=40, 
+                        src_color=(255, 255, 255),
+                        p=0.3
+                    ),
+                    # Simulate reflections and glare (specific to your black reflective floor)
+                    A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), contrast_limit=(-0.2, 0.2), p=0.4),
                 ], p=0.5),
-                
-                # Weather simulation
+
+                # Simulate shadows and occlusions (but fewer holes)
+                A.RandomShadow(shadow_roi=(0, 0.5, 1, 1), p=0.3),
                 A.OneOf([
-                    A.RandomRain(blur_value=3, p=0.5),
-                    A.RandomFog(fog_coef_lower=0.1, fog_coef_upper=0.3, p=0.5),
+                    # White patches (could be glare/reflections)
+                    A.CoarseDropout(
+                        num_holes_range=(2, 4),
+                        hole_height_range=(8, 20),
+                        hole_width_range=(8, 20),
+                        fill=255,
+                        p=1.0
+                    ),
+                    # Dark patches (could be shadows/debris)
+                    A.CoarseDropout(
+                        num_holes_range=(2, 4),
+                        hole_height_range=(8, 20),
+                        hole_width_range=(8, 20),
+                        fill=0,
+                        p=1.0
+                    ),
+                    # Realistic inpainted patches (could be worn markings)
+                    A.CoarseDropout(
+                        num_holes_range=(2, 4),
+                        hole_height_range=(8, 20),
+                        hole_width_range=(8, 20),
+                        fill="inpaint_ns",
+                        p=1.0
+                    ),
                 ], p=0.3),
                 
-                # Blur and noise
+                # Moderate color transforms
+                A.OneOf([
+                    A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.3, hue=0.1, p=0.5),
+                    A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=15, p=0.5),
+                    A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5)  # Subtle color shifts
+                ], p=0.5),
+
+                # Floor division suppression
+                A.OneOf([
+                    # Reduce contrast in floor areas to minimize floor divisions
+                    A.PixelDropout(dropout_prob=0.03, per_channel=True, drop_value=None, p=0.4),
+                    # Smoothing to reduce impact of floor divisions
+                    A.MedianBlur(blur_limit=3, p=0.4),
+                ], p=0.5),
+
+                # Enhance contrast to make lane markings more visible
+                A.OneOf([
+                    A.CLAHE(clip_limit=4.0, tile_grid_size=(4, 4), p=0.5),
+                    A.Sharpen(alpha=(0.3, 0.6), lightness=(0.7, 1.0), p=0.5),
+                ], p=0.4),
+                
+                # Mild perspective transform to simulate camera angle changes
+                A.Perspective(scale=(0.05, 0.15), keep_size=True, fit_output=True, p=0.5),
+                
+                # Light blur to simulate motion/focus issues
                 A.OneOf([
                     A.MotionBlur(blur_limit=3),
-                    A.MedianBlur(blur_limit=3),
                     A.GaussianBlur(blur_limit=3),
-                    A.GaussNoise(var_limit=(10, 50)),
+                    A.GlassBlur(sigma=0.4, max_delta=2, iterations=1, p=0.2),  # Simulates reflections
                 ], p=0.3),
                 
                 # Normalization and conversion to tensor

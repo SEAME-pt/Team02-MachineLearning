@@ -3,8 +3,8 @@ from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
 import torch.optim as optim
 from src.Dataset import TuSimpleDataset
-from src.DeepLab import LaneSegmentationModel
 from src.train import train_model
+from src.unet import UNet
 import os
 
 def main():
@@ -28,10 +28,9 @@ def main():
     img_dir = "/home/luis_t2/LaneNet/assets/TUSimple/train_set/"
     
     # Create dataset with augmentation
-    full_dataset = TuSimpleDataset(json_paths, img_dir, width=512, height=256, is_train=True)
+    full_dataset = TuSimpleDataset(json_paths, img_dir, width=256, height=128, is_train=True)
     
-    # Split dataset into training and validation sets (80/20 split)
-    train_size = int(0.8 * len(full_dataset))
+    train_size = int(0.9 * len(full_dataset))
     val_size = len(full_dataset) - train_size
     train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
     
@@ -43,16 +42,14 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=os.cpu_count() // 2)
     
     # Initialize model
-    model = LaneSegmentationModel().to(device)
-    
+    model = UNet().to(device)
+
     criterion = nn.BCEWithLogitsLoss()
+
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     
     # Train model
-    model = train_model(model, train_loader, val_loader, criterion, optimizer, device, epochs=10)
-    
-    # Save model
-    torch.save(model.state_dict(), 'lane_detection_model.pth')
+    model = train_model(model, train_loader, val_loader, criterion, optimizer, device, epochs=15)
 
 if __name__ == '__main__':
     main()

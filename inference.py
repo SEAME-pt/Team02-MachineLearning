@@ -1,11 +1,10 @@
 import torch
-from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import cv2
 from torchvision import transforms
-from src.DeepLab import LaneSegmentationModel
+from src.unet import UNet
 
 # Set up device
 if torch.cuda.is_available():
@@ -18,13 +17,12 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
-# Load the trained model
-model = LaneSegmentationModel(num_classes=1).to(device)
-model.load_state_dict(torch.load('lane_model_epoch_5.pth', map_location=device))
+model = UNet().to(device)
+model.load_state_dict(torch.load('Models/lane_model8_epoch_15.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
-def preprocess_image(image, target_size=(512, 256)):
+def preprocess_image(image, target_size=(256, 128)):
     # Resize image
     img = cv2.resize(image, target_size)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -42,7 +40,7 @@ def preprocess_image(image, target_size=(512, 256)):
     return img_tensor, img
 
 # Function to overlay lane predictions on image
-def overlay_predictions(image, prediction, threshold=0.5):
+def overlay_predictions(image, prediction, threshold=0.55):
     # Convert prediction to binary mask
     prediction = prediction.squeeze().cpu().detach().numpy()
     lane_mask = (prediction > threshold).astype(np.uint8) * 255
@@ -59,7 +57,7 @@ def overlay_predictions(image, prediction, threshold=0.5):
     return overlay
 
 # Open video
-cap = cv2.VideoCapture("assets/road1.mp4")
+cap = cv2.VideoCapture("assets/road_seame.mp4")
 
 while True:
     ret, frame = cap.read()

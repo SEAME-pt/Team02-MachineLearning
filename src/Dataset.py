@@ -17,7 +17,7 @@ def get_binary_labels(height, width, pts, thickness=5):
             color=1,
             thickness=thickness)
 
-    return bin_img.astype(np.float32)[None, ...]   
+    return bin_img.astype(np.float32)[None, ...]
 
 def get_image_transform():
     normalizer = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -104,9 +104,7 @@ class TuSimpleDataset(Dataset):
         pts = [[(int(round(x*x_rate)), int(round(y*y_rate)))
                 for (x, y) in lane] for lane in pts]
 
-        # Generate labels
         bin_labels = get_binary_labels(self.height, self.width, pts,
                                     thickness=self.thickness)
 
-        # Apply augmentation and return
         return self.augmentation(image, bin_labels)
