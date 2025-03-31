@@ -1,10 +1,12 @@
 import torch
+from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import cv2
 from torchvision import transforms
 from src.unet import UNet
+import time
 
 # Set up device
 if torch.cuda.is_available():
@@ -17,8 +19,9 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
+# Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane_model8_epoch_15.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane_model7_epoch_18.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -40,7 +43,7 @@ def preprocess_image(image, target_size=(256, 128)):
     return img_tensor, img
 
 # Function to overlay lane predictions on image
-def overlay_predictions(image, prediction, threshold=0.55):
+def overlay_predictions(image, prediction, threshold=0.5):
     # Convert prediction to binary mask
     prediction = prediction.squeeze().cpu().detach().numpy()
     lane_mask = (prediction > threshold).astype(np.uint8) * 255
@@ -64,13 +67,15 @@ while True:
     if not ret:
         break
     
+    time.sleep(1/45) 
+    
     # Preprocess the image
     img_tensor, original_frame = preprocess_image(frame)
     
     # Run inference
     with torch.no_grad():
         predictions = model(img_tensor)
-        predictions = torch.sigmoid(predictions)  # Apply sigmoid for binary segmentation
+        predictions = torch.sigmoid(predictions)
     
     # Overlay predictions on the original frame
     result_frame = overlay_predictions(frame, predictions)
