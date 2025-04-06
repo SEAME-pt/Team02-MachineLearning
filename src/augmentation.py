@@ -21,38 +21,29 @@ class LaneDetectionAugmentation:
                 A.HorizontalFlip(p=0.5),
 
                 # This will move lanes left/right by up to 30% of image width
-                A.Affine(
-                    translate_percent={"x": (-0.3, 0.3), "y": (-0.1, 0.1)},
-                    scale=(0.9, 1.1),  # Equivalent to scale_limit=0.1
-                    rotate=(-15, 15),  # Equivalent to rotate_limit=15
-                    border_mode=0,     # Same border mode
-                    p=0.7              # Same probability
-                ),
-                
-                # NEW: Add specific lane shift transformations
                 A.OneOf([
                     # Shift lanes heavily to the left
                     A.Affine(
-                        translate_percent={"x": (-0.25, -0.15), "y": (0, 0)},
+                        translate_percent={"x": (-0.35, -0.15), "y": (0, 0)},
                         scale=1.0,
                         rotate=0,
                         p=1.0
                     ),
                     # Shift lanes heavily to the right
                     A.Affine(
-                        translate_percent={"x": (0.15, 0.25), "y": (0, 0)},
+                        translate_percent={"x": (0.15, 0.35), "y": (0, 0)},
                         scale=1.0,
                         rotate=0,
                         p=1.0
                     ),
-                    # Center the lanes (no translation)
+                    # Center the lanes with variable position
                     A.Affine(
-                        translate_percent={"x": (-0.05, 0.05), "y": (0, 0)},
-                        scale=1.0,
-                        rotate=0,
+                        translate_percent={"x": (-0.1, 0.1), "y": (0, 0)},
+                        scale=(0.9, 1.1),  # Add some scaling variation 
+                        rotate=(-5, 5),    # Add slight rotation
                         p=1.0
                     ),
-                ], p=0.6),
+                ], p=0.8),
 
                 A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-45, 45), p=0.5),
                 
