@@ -21,11 +21,11 @@ def main():
     
     # Dataset paths
     json_paths =[
-        "/home/luis_t2/LaneNet/assets/TUSimple/train_set/label_data_0313.json",
-        "/home/luis_t2/LaneNet/assets/TUSimple/train_set/label_data_0531.json",
-        "/home/luis_t2/LaneNet/assets/TUSimple/train_set/label_data_0601.json"
+        "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0313.json",
+        "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0531.json",
+        "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0601.json"
     ]
-    img_dir = "/home/luis_t2/LaneNet/assets/TUSimple/train_set/"
+    img_dir = "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/"
     
     # Create dataset with augmentation
     full_dataset = TuSimpleDataset(json_paths, img_dir, width=256, height=128, is_train=True)

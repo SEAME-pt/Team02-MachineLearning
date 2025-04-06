@@ -20,6 +20,40 @@ class LaneDetectionAugmentation:
                 # Basic spatial transforms - increase rotation range for sharp turns
                 A.HorizontalFlip(p=0.5),
 
+                # This will move lanes left/right by up to 30% of image width
+                A.Affine(
+                    translate_percent={"x": (-0.3, 0.3), "y": (-0.1, 0.1)},
+                    scale=(0.9, 1.1),  # Equivalent to scale_limit=0.1
+                    rotate=(-15, 15),  # Equivalent to rotate_limit=15
+                    border_mode=0,     # Same border mode
+                    p=0.7              # Same probability
+                ),
+                
+                # NEW: Add specific lane shift transformations
+                A.OneOf([
+                    # Shift lanes heavily to the left
+                    A.Affine(
+                        translate_percent={"x": (-0.25, -0.15), "y": (0, 0)},
+                        scale=1.0,
+                        rotate=0,
+                        p=1.0
+                    ),
+                    # Shift lanes heavily to the right
+                    A.Affine(
+                        translate_percent={"x": (0.15, 0.25), "y": (0, 0)},
+                        scale=1.0,
+                        rotate=0,
+                        p=1.0
+                    ),
+                    # Center the lanes (no translation)
+                    A.Affine(
+                        translate_percent={"x": (-0.05, 0.05), "y": (0, 0)},
+                        scale=1.0,
+                        rotate=0,
+                        p=1.0
+                    ),
+                ], p=0.6),
+
                 A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-45, 45), p=0.5),
                 
                 # Simulate reflections on floor (specular highlights) and shadows
@@ -68,14 +102,6 @@ class LaneDetectionAugmentation:
                     A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.3, hue=0.1, p=0.5),
                     A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=15, p=0.5),
                     A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5)  # Subtle color shifts
-                ], p=0.5),
-
-                # Floor division suppression
-                A.OneOf([
-                    # Reduce contrast in floor areas to minimize floor divisions
-                    A.PixelDropout(dropout_prob=0.03, per_channel=True, drop_value=None, p=0.4),
-                    # Smoothing to reduce impact of floor divisions
-                    A.MedianBlur(blur_limit=3, p=0.4),
                 ], p=0.5),
 
                 # Enhance contrast to make lane markings more visible
