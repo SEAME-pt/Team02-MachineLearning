@@ -47,12 +47,12 @@ class TuSimpleDataset(Dataset):
         self.thickness = thickness
         self.img_dir = img_dir
         self.transform = get_image_transform()
+        self.is_train = is_train
 
         # Initialize augmentation
         self.augmentation = LaneDetectionAugmentation(
             height=height, 
             width=width,
-            is_train=is_train
         )
         
         # Load all samples from all json files
@@ -107,4 +107,8 @@ class TuSimpleDataset(Dataset):
         bin_labels = get_binary_labels(self.height, self.width, pts,
                                     thickness=self.thickness)
 
-        return self.augmentation(image, bin_labels)
+        if self.is_train:
+            return self.augmentation(image, bin_labels)
+        else:
+            image = self.transform(image)
+            return image, bin_labels
