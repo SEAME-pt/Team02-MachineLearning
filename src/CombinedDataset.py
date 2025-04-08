@@ -128,6 +128,10 @@ class CombinedLaneDataset(Dataset):
             else:
                 # Get SEA validation sample
                 sea_idx = idx - self.tusimple_val_size
+                # Add bounds check to prevent index errors
+                if sea_idx >= len(self.sea_val_indices):
+                    # If out of bounds, return a random sample from available indices
+                    sea_idx = random.randint(0, len(self.sea_val_indices) - 1)
                 actual_idx = self.sea_val_indices[sea_idx]
                 return self.sea_dataset[actual_idx]
         else:
@@ -139,6 +143,10 @@ class CombinedLaneDataset(Dataset):
             else:
                 # Get SEA training sample
                 sea_idx = idx - self.tusimple_train_size
+                # Add bounds check to prevent index errors
+                if sea_idx >= len(self.sea_train_indices):
+                    # If out of bounds, return a random sample from available indices
+                    sea_idx = random.randint(0, len(self.sea_train_indices) - 1)
                 actual_idx = self.sea_train_indices[sea_idx]
                 return self.sea_dataset[actual_idx]
 

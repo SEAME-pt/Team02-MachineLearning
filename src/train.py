@@ -73,6 +73,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, e
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             print(f'  Validation loss improved! Saving model...')
-            torch.save(model.state_dict(), f'Models/lane_model16_epoch_{epoch+1}.pth')
+            torch.save(model.state_dict(), f'Models/lane_model19_epoch_{epoch+1}.pth')
     
     print(f'Training completed. Best validation loss: {best_val_loss:.4f}')
