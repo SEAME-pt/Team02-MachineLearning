@@ -48,7 +48,11 @@ def main():
     
     # Get train and val datasets (these are views of the same dataset with different modes)
     train_dataset = combined_dataset.get_train_dataset()
-    val_dataset = combined_dataset.get_val_dataset()
+    # val_dataset = combined_dataset.get_val_dataset()
+
+        # Debug information
+    print(f"Train dataset size: {len(train_dataset)}")
+    print(f"Expected batches with batch_size=8: {len(train_dataset) // 8 + (1 if len(train_dataset) % 8 > 0 else 0)}")
     
     # Create dataloaders
     train_loader = DataLoader(
@@ -58,12 +62,12 @@ def main():
         num_workers=os.cpu_count() // 2
     )
     
-    val_loader = DataLoader(
-        val_dataset, 
-        batch_size=8, 
-        shuffle=False, 
-        num_workers=os.cpu_count() // 2
-    )
+    # val_loader = DataLoader(
+    #     val_dataset, 
+    #     batch_size=8, 
+    #     shuffle=False, 
+    #     num_workers=os.cpu_count() // 2
+    # )
     
     # Initialize model
     model = UNet().to(device)
@@ -71,7 +75,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     
     # Train model
-    model = train_model(model, train_loader, val_loader, criterion, optimizer, device, epochs=40)
+    model = train_model(model, train_loader, criterion, optimizer, device, epochs=40)
 
 if __name__ == '__main__':
     main()
