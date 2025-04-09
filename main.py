@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
 import torch.nn as nn
 import torch.optim as optim
 from src.CombinedDataset import CombinedLaneDataset
@@ -7,6 +7,7 @@ from src.SEAMEDataset import SEAMEDataset
 from src.train import train_model
 from src.unet import UNet
 import os
+import numpy as np
 
 def main():
     # Set device
@@ -44,21 +45,44 @@ def main():
     }
     
     # Create the combined dataset with built-in train/val split
-    combined_dataset = CombinedLaneDataset(tusimple_config, sea_config, val_split=0.1)
+    combined_dataset = CombinedLaneDataset(tusimple_config, sea_config, val_split=0.0)
     
     # Get train and val datasets (these are views of the same dataset with different modes)
     train_dataset = combined_dataset.get_train_dataset()
     # val_dataset = combined_dataset.get_val_dataset()
 
-        # Debug information
-    print(f"Train dataset size: {len(train_dataset)}")
-    print(f"Expected batches with batch_size=8: {len(train_dataset) // 8 + (1 if len(train_dataset) % 8 > 0 else 0)}")
-    
+    # Create weights array for TRAINING data only
+    train_tusimple_size = train_dataset.tusimple_train_size
+    train_sea_size = train_dataset.sea_train_size
+    weights = np.zeros(train_dataset.train_size)
+
+    # Calculate weights for equal contribution
+    total_samples = train_tusimple_size + train_sea_size
+    tusimple_weight = 0.7 / (train_tusimple_size / total_samples)
+    sea_weight = 0.3 / (train_sea_size / total_samples)
+
+    # Apply weights to all samples
+    for i in range(train_dataset.train_size):
+        if i < train_tusimple_size:
+            weights[i] = tusimple_weight
+        else:
+            weights[i] = sea_weight
+
+    # Create sampler for TRAINING only
+    sampler = WeightedRandomSampler(
+        weights=weights,
+        num_samples=len(weights),
+        replacement=True
+    )
+
+    print(f"Created weighted sampler: TuSimple weight={tusimple_weight:.4f}, SEA weight={sea_weight:.4f}")
+
     # Create dataloaders
     train_loader = DataLoader(
         train_dataset, 
         batch_size=8, 
-        shuffle=True, 
+        # shuffle=True,
+        sampler=sampler,
         num_workers=os.cpu_count() // 2
     )
     
@@ -75,7 +99,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     
     # Train model
-    model = train_model(model, train_loader, criterion, optimizer, device, epochs=40)
+    model = train_model(model, train_loader, criterion, optimizer, device, epochs=15)
 
 if __name__ == '__main__':
     main()
