@@ -81,8 +81,8 @@ def main():
     train_loader = DataLoader(
         train_dataset, 
         batch_size=8, 
-        # shuffle=True,
-        sampler=sampler,
+        shuffle=True,
+        # sampler=sampler,
         num_workers=os.cpu_count() // 2
     )
     
