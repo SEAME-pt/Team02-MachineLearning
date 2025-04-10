@@ -20,7 +20,7 @@ else:
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane_model19_epoch_10.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane_model3_epoch_14.pth', map_location=device))
 model.eval()
 
 dummy_input = torch.randn(1, 3, 128, 256).to(device)  

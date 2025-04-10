@@ -21,7 +21,7 @@ else:
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane_model1_epoch_4.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane_model3_epoch_14.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -45,7 +45,7 @@ def preprocess_image(image, target_size=(256, 128)):
     
     return img_tensor, img
 # Function to overlay lane predictions on image
-def overlay_predictions(image, prediction, threshold=0.5):
+def overlay_predictions(image, prediction, threshold=0.6):
     # Convert prediction to binary mask
     prediction = prediction.squeeze().cpu().detach().numpy()
     lane_mask = (prediction > threshold).astype(np.uint8) * 255
@@ -68,6 +68,8 @@ while True:
     ret, frame = cap.read()
     if not ret:
         break
+
+    time.sleep(0.05)  # Optional: Add a small delay to control frame rate
     
     # Preprocess the image
     img_tensor, original_frame = preprocess_image(frame)

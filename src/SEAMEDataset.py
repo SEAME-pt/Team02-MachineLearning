@@ -60,6 +60,7 @@ class SEAMEDataset(Dataset):
                 img_path = os.path.join(img_dir, img_file)
                 self.samples.append((img_path, mask_path))
                 valid_images += 1
+            else:
                 skipped_images += 1
             
         print(f"Dataset loaded: {valid_images} valid image-mask pairs, {skipped_images} images skipped due to missing masks")
