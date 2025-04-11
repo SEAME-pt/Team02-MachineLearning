@@ -3,6 +3,7 @@ import json
 import cv2
 import numpy as np
 import torch
+from .augmentation import LaneDetectionAugmentation
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
@@ -13,7 +14,7 @@ def get_image_transform():
     return transforms.Compose(t)
 
 class BDD100KDataset(Dataset):
-    def __init__(self, img_dir, labels_file, width=512, height=256, is_train=True):
+    def __init__(self, img_dir, labels_file, width=512, height=256, is_train=True, thickness=5):
         """
         BDD100K Dataset for lane detection and object detection with direct path specification
         
@@ -29,10 +30,12 @@ class BDD100KDataset(Dataset):
         self.width = width
         self.height = height
         self.is_train = is_train
+        self.thickness = thickness  # Added thickness parameter
         self.transform = get_image_transform()
-        
-        print(f"Using image directory: {self.img_dir}")
-        print(f"Using labels file: {self.labels_file}")
+        self.augmentation = LaneDetectionAugmentation(
+            height=height, 
+            width=width,
+        )
         
         # Load annotations
         with open(self.labels_file, 'r') as f:
@@ -100,7 +103,7 @@ class BDD100KDataset(Dataset):
         orig_h, orig_w = image.shape[:2]
         
         # Resize image
-        resized_img = cv2.resize(image, (self.width, self.height))
+        image = cv2.resize(image, (self.width, self.height))
         
         # Get annotation for this image
         annotation = self.img_to_annot[img_name]
@@ -156,24 +159,18 @@ class BDD100KDataset(Dataset):
                 obj_targets.append([class_id, x_center, y_center, width, height])
         
         # Convert lane mask to required format
-        lane_mask = lane_mask[None, ...]  # Add channel dimension
+        bin_labels = lane_mask.astype(np.float32)[None, ...]  # Add channel dimension
         
-        # Convert targets to tensor
-        obj_targets = torch.tensor(obj_targets, dtype=torch.float32) if obj_targets else torch.zeros((0, 5), dtype=torch.float32)
-        
-        # Apply transformations
-        transformed_img = self.transform(resized_img)
-        
-        return {
-            'image': transformed_img,
-            'lane_mask': lane_mask,
-            'obj_boxes': obj_targets,
-            'image_name': img_name
-        }
+        # Apply transformations based on training mode
+        if self.is_train:
+            return self.augmentation(image, bin_labels)
+        else:
+            image = self.transform(image)
+            return image, bin_labels
 
     def visualize(self, indices=None, num_samples=3):
         """
-        Visualize images with their lane masks and object boxes
+        Visualize images with their lane masks
         
         Args:
             indices: List of specific indices to visualize, or None for random samples
@@ -193,72 +190,60 @@ class BDD100KDataset(Dataset):
             indices = [indices]
         
         # Create figure
-        fig = plt.figure(figsize=(15, 5 * len(indices)))
+        fig = plt.figure(figsize=(12, 5 * len(indices)))
         
         for i, idx in enumerate(indices):
             # Get sample
-            sample = self[idx]
-            image = sample['image']
-            lane_mask = sample['lane_mask']
-            obj_boxes = sample['obj_boxes']
-            img_name = sample['image_name']
+            img_path, img_name = self.samples[idx]
             
-            # Convert tensor to numpy for visualization
-            image = image.permute(1, 2, 0).numpy()
-            # Denormalize
-            mean = np.array([0.485, 0.456, 0.406])
-            std = np.array([0.229, 0.224, 0.225])
-            image = std * image + mean
-            image = np.clip(image, 0, 1)
+            # Load image directly
+            image = cv2.imread(img_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            orig_h, orig_w = image.shape[:2]
+            
+            # Resize image for display
+            image = cv2.resize(image, (self.width, self.height))
+            
+            # Get lane mask
+            _, bin_labels = self.__getitem__(idx)
+            if isinstance(bin_labels, torch.Tensor):
+                bin_labels = bin_labels.numpy()
             
             # Create subplots for this sample
             ax1 = fig.add_subplot(len(indices), 2, i*2 + 1)
             ax2 = fig.add_subplot(len(indices), 2, i*2 + 2)
             
-            # Show original image with boxes
+            # Show original image
             ax1.imshow(image)
             ax1.set_title(f"Image {idx}: {img_name}")
             
-            # Draw boxes
-            for box in obj_boxes:
-                class_id, x_center, y_center, width, height = box.tolist()
-                # Convert normalized coordinates to pixel values
-                x1 = int((x_center - width/2) * self.width)
-                y1 = int((y_center - height/2) * self.height)
-                x2 = int((x_center + width/2) * self.width)
-                y2 = int((y_center + height/2) * self.height)
-                
-                # Draw rectangle
-                rect = plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='red', linewidth=2)
-                ax1.add_patch(rect)
-                
-                # Get category name
-                category = self.obj_categories[int(class_id)]
-                ax1.text(x1, y1-5, category, color='white', backgroundcolor='red', fontsize=8)
-            
             # Show lane mask
-            lane_mask = lane_mask[0]  # Remove channel dimension
-            ax2.imshow(lane_mask, cmap='gray')
+            if bin_labels.ndim > 2:
+                bin_labels = bin_labels[0]  # Remove channel dimension
+            ax2.imshow(bin_labels, cmap='gray')
             ax2.set_title(f"Lane Mask {idx}")
         
         plt.tight_layout()
         plt.show()
 
 
-# Simple usage example with direct paths
+# Simple usage example
 if __name__ == "__main__":
-    # Direct paths to dataset components - replace with your actual paths
+    # Direct paths to dataset components
     img_dir = "/home/luis_t2/SEAME/bdd100k/bdd100k/images/100k/train"
     labels_file = "/home/luis_t2/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json"
     
     # Create dataset with direct paths
     dataset = BDD100KDataset(
         img_dir=img_dir,
-        labels_file=labels_file
+        labels_file=labels_file,
+        width=512,
+        height=256,
+        is_train=True
     )
     
     print(f"Dataset size: {len(dataset)}")
     
-    # Visualize a sample if dataset is not empty
+    # Visualize samples
     if len(dataset) > 0:
-        dataset.visualize(num_samples=5)
+        dataset.visualize(num_samples=3)
