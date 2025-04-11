@@ -248,8 +248,8 @@ class BDD100KDataset(Dataset):
 # Simple usage example with direct paths
 if __name__ == "__main__":
     # Direct paths to dataset components - replace with your actual paths
-    img_dir = "/Users/ruipedropires/SEAME/bdd100k/bdd100k/images/100k/train"
-    labels_file = "/Users/ruipedropires/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json"
+    img_dir = "/home/luis_t2/SEAME/bdd100k/bdd100k/images/100k/train"
+    labels_file = "/home/luis_t2/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json"
     
     # Create dataset with direct paths
     dataset = BDD100KDataset(

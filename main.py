@@ -21,15 +21,15 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
-    "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0313.json",
-    "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0601.json"
+    "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
+    "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"
 
     # Your dataset configs
     tusimple_config = {
-        'json_paths': ["/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0313.json",
-                        "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0531.json",
-                        "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0601.json"],
-        'img_dir': '/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/',
+        'json_paths': ["/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
+                        "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
+                        "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
+        'img_dir': '/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/',
         'width': 256,
         'height': 128,
         'is_train': True,  # Set is_train=True for the base dataset
@@ -37,8 +37,8 @@ def main():
     }
     
     sea_config = {
-        'img_dir': '/Users/ruipedropires/SEAME/Dataset/frames',
-        'mask_dir': '/Users/ruipedropires/SEAME/Dataset/masks',
+        'img_dir': '/home/luis_t2/SEAME/Dataset/frames',
+        'mask_dir': '/home/luis_t2/SEAME/Dataset/masks',
         'width': 256,
         'height': 128,
         'is_train': True  # Set is_train=True for the base dataset
@@ -58,8 +58,8 @@ def main():
 
     # Calculate weights for equal contribution
     total_samples = train_tusimple_size + train_sea_size
-    tusimple_weight = 0.7 / (train_tusimple_size / total_samples)
-    sea_weight = 0.3 / (train_sea_size / total_samples)
+    tusimple_weight = 0.6 / (train_tusimple_size / total_samples)
+    sea_weight = 0.4 / (train_sea_size / total_samples)
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
@@ -99,7 +99,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     
     # Train model
-    model = train_model(model, train_loader, criterion, optimizer, device, epochs=15)
+    model = train_model(model, train_loader, criterion, optimizer, device, epochs=20)
 
 if __name__ == '__main__':
     main()

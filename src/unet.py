@@ -74,29 +74,51 @@ class outconv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self):
+    def __init__(self, base_filters=64):
         super(UNet, self).__init__()
-        self.inc = inconv(3, 64)
-        self.down1 = down(64, 128)
-        self.down2 = down(128, 256)
-        self.down3 = down(256, 512)
-        self.down4 = down(512, 512)
-        self.up1 = up(1024, 256)
-        self.up2 = up(512, 128)
-        self.up3 = up(256, 64)
-        self.up4 = up(128, 64)
-        self.sem_out = outconv(64, 1)
+        self.inc = inconv(3, base_filters)
+        self.down1 = down(base_filters, base_filters*2)
+        self.down2 = down(base_filters*2, base_filters*4)
+        self.down3 = down(base_filters*4, base_filters*4)
+
+        self.up1 = up(base_filters*8, base_filters*2)
+        self.up2 = up(base_filters*4, base_filters)
+        self.up3 = up(base_filters*2, base_filters)
+        self.sem_out = outconv(base_filters, 1)
 
     def forward(self, x):
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        sem = self.sem_out(x)
 
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        sem = self.sem_out(x)
+        return sem
+
+class LightUNet(nn.Module):
+    def __init__(self, base_filters=32):
+        super(LightUNet, self).__init__()
+        self.inc = inconv(3, base_filters)
+        self.down1 = down(base_filters, base_filters*2)
+        self.down2 = down(base_filters*2, base_filters*4)
+        self.down3 = down(base_filters*4, base_filters*4)
+        
+        self.up1 = up(base_filters*8, base_filters*2)
+        self.up2 = up(base_filters*4, base_filters)
+        self.up3 = up(base_filters*2, base_filters)
+        self.sem_out = outconv(base_filters, 1)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        sem = self.sem_out(x)
         return sem
