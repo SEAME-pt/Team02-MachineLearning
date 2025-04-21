@@ -91,68 +91,56 @@ def overlay_lane_predictions(image, prediction, threshold=0.6):
     return overlay
 
 # Function to draw detected objects on the image
-def draw_detections(image, detections, conf_threshold=0.25):
-    """
-    Draw bounding boxes and labels for detected objects
-    
-    Args:
-        image: Original image to draw on
-        detections: List of detection tensors from YOLO model
-        conf_threshold: Confidence threshold for displaying detections
-    
-    Returns:
-        Image with bounding boxes and labels drawn
-    """
+def draw_detections(image, detections, conf_threshold=0.05):
     result_img = image.copy()
     h, w = image.shape[:2]
     
     for detection in detections:
         # Skip if no detections
         if detection.size(0) == 0:
+            print("Empty detection batch")
             continue
+        
+        print(f"Processing {detection.size(0)} detections")
         
         # Process each detection
         for i in range(detection.size(0)):
             x1, y1, x2, y2, obj_conf, cls_conf, cls_idx = detection[i]
             
+            # Debug raw values
+            print(f"Raw box: x1={x1.item():.3f}, y1={y1.item():.3f}, x2={x2.item():.3f}, y2={y2.item():.3f}, " 
+                  f"obj_conf={obj_conf.item():.3f}, cls_conf={cls_conf.item():.3f}")
+            
             # Skip low confidence detections
             score = float(obj_conf * cls_conf)
             if score < conf_threshold:
+                # print(f"Low confidence: {score:.3f} < {conf_threshold}")
                 continue
             
-            # Convert normalized coordinates to pixel values
-            x1 = int(x1.item() * w)
-            y1 = int(y1.item() * h)
-            x2 = int(x2.item() * w)
-            y2 = int(y2.item() * h)
+            # Convert coordinates to integers
+            x1 = max(0, min(w-1, int(x1.item())))
+            y1 = max(0, min(h-1, int(y1.item())))
+            x2 = max(0, min(w-1, int(x2.item())))
+            y2 = max(0, min(h-1, int(y2.item())))
             
-            # Get class index and name
+            # Validate box dimensions
+            if x2 <= x1 or y2 <= y1 or x1 >= w or y1 >= h or x2 <= 0 or y2 <= 0:
+                print(f"Invalid box: ({x1},{y1},{x2},{y2}) in image ({w},{h})")
+                continue
+            
+            # Draw the actual box
+            # print(f"Drawing box at: ({x1},{y1},{x2},{y2})")
+            
+            # Get the class index and select color
             cls_idx = int(cls_idx.item())
-            cls_name = CLASS_NAMES[cls_idx]
+            color = COLORS[cls_idx % len(COLORS)]
+            label = f"{CLASS_NAMES[cls_idx]}: {score:.2f}"
             
-            # Get color for this class
-            color = COLORS[cls_idx]
-            
-            # Draw bounding box
+            # Draw rectangle and label
             cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
-            
-            # Prepare label text with confidence
-            label = f"{cls_name}: {score:.2f}"
-            
-            # Get text size
-            (text_width, text_height), baseline = cv2.getTextSize(
-                label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            
-            # Draw label background
-            cv2.rectangle(result_img, 
-                         (x1, y1 - text_height - baseline - 5), 
-                         (x1 + text_width, y1), 
-                         color, -1)
-            
-            # Draw label text
-            cv2.putText(result_img, label, (x1, y1 - 5), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(result_img, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
     
+    # IMPORTANT: Return the modified image
     return result_img
 
 def visualize_raw_predictions(frame, predictions):
@@ -214,7 +202,7 @@ def main():
             detections = yolo_model.predict_boxes(
                 yolo_predictions, 
                 input_dim=input_size[1],  # Height 
-                conf_thresh=0.1
+                conf_thresh=0.01
             )
             
             # Apply non-maximum suppression to remove overlapping boxes
@@ -228,13 +216,8 @@ def main():
         # result_frame = overlay_lane_predictions(frame, lane_predictions)
         
         # Then draw object detections
-        # result_frame = draw_detections(frame, processed_detections)
-        result_frame = visualize_raw_predictions(frame, yolo_predictions)
-        
-        # Display processing stats on the frame
-        cv2.putText(result_frame, f"Frame: {int(cap.get(cv2.CAP_PROP_POS_FRAMES))}", 
-                   (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-    
+        result_frame = draw_detections(frame, processed_detections)
+        # result_frame = visualize_raw_predictions(frame, yolo_predictions)
         
         # Display the result
         cv2.imshow("Detection Results", result_frame)
