@@ -60,8 +60,6 @@ class SimpleYOLO(nn.Module):
         super(SimpleYOLO, self).__init__()
         
         self.num_classes = num_classes
-        # anchors: list of lists, where each sublist contains the anchors for a specific scale
-        # e.g., [[10, 13, 16, 30, 33, 23], [30, 61, 62, 45, 59, 119], [116, 90, 156, 198, 373, 326]]
         self.anchors = torch.tensor(anchors).float().view(-1, 3, 2)
         self.num_anchors = self.anchors.size(1)
         
@@ -316,14 +314,14 @@ class YOLOLoss(nn.Module):
             grid_h = prediction.size(2)  # Height of the grid
             grid_w = prediction.size(3)  # Width of the grid
             
-            # Debug info
-            # print(f"Scale {scale}: prediction shape = {prediction.shape}")
-            
             # Stride from original image to current grid
-            stride = self.input_dim / grid_h  # Assuming input is square
+            stride_h = self.input_dim / grid_h
+            stride_w = self.input_dim * 2 / grid_w   # Assuming input is square
             
             # Scale anchors to current grid size
-            scaled_anchors = (anchors * stride).to(self.device)
+            scaled_anchors_w = anchors[:, 0] * stride_w
+            scaled_anchors_h = anchors[:, 1] * stride_h
+            scaled_anchors = torch.stack((scaled_anchors_w, scaled_anchors_h), dim=1).to(self.device)
             
             # Create target tensors - now using grid_h and grid_w separately
             obj_mask = torch.zeros(batch_size, self.num_anchors, grid_h, grid_w, 
@@ -357,8 +355,8 @@ class YOLOLoss(nn.Module):
                     # Use grid_w for x and grid_h for y to handle non-square grids
                     x = target[obj_idx, 2] * grid_w  # center x (grid units)
                     y = target[obj_idx, 3] * grid_h  # center y (grid units)
-                    w = target[obj_idx, 4] * self.input_dim  # width (pixel units)
-                    h = target[obj_idx, 5] * self.input_dim  # height (pixel units)
+                    w = target[obj_idx, 4] * self.input_dim * 2  # width (pixel units, adjusted for aspect ratio)
+                    h = target[obj_idx, 5] * self.input_dim   # height (pixel units)
                     
                     # Skip invalid targets (those outside the grid)
                     if x < 0 or y < 0 or x > grid_w-1 or y > grid_h-1:
