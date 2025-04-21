@@ -43,11 +43,13 @@ class DetectionBlock(nn.Module):
         x = self.conv1(x)
         x = self.conv2(x)
         
-        # Reshape to [batch, anchors, grid_h, grid_w, box_params+classes]
+        # Get actual grid dimensions
         batch_size = x.size(0)
-        grid_size = x.size(2)
+        grid_h = x.size(2)
+        grid_w = x.size(3)
         
-        prediction = x.view(batch_size, self.num_anchors, 5 + self.num_classes, grid_size, grid_size)
+        # Reshape using actual grid dimensions
+        prediction = x.view(batch_size, self.num_anchors, 5 + self.num_classes, grid_h, grid_w)
         prediction = prediction.permute(0, 1, 3, 4, 2).contiguous()
         
         return prediction
@@ -310,42 +312,40 @@ class YOLOLoss(nn.Module):
         Calculate YOLO loss
         
         Args:
-            predictions: List of predictions from model, each with shape 
-                        [batch, num_anchors, grid_h, grid_w, 5+num_classes]
-            targets: List of target tensors, each with shape 
-                    [num_objects, 6] (batch_idx, class_idx, x, y, w, h)
-                    where x, y, w, h are normalized to [0, 1]
-                    
-        Returns:
-            Total loss value
+            predictions: List of predictions from model
+            targets: List of target tensors
         """
         total_loss = 0
         for scale, (prediction, anchors) in enumerate(zip(predictions, self.anchors)):
             # Get current grid dimensions
             batch_size = prediction.size(0)
-            grid_size = prediction.size(2)
+            grid_h = prediction.size(2)  # Height of the grid
+            grid_w = prediction.size(3)  # Width of the grid
+            
+            # Debug info
+            # print(f"Scale {scale}: prediction shape = {prediction.shape}")
             
             # Stride from original image to current grid
-            stride = self.input_dim / grid_size
+            stride = self.input_dim / grid_h  # Assuming input is square
             
             # Scale anchors to current grid size
             scaled_anchors = (anchors * stride).to(self.device)
             
-            # Create target tensors
-            obj_mask = torch.zeros(batch_size, self.num_anchors, grid_size, grid_size, 
-                                  dtype=torch.bool, device=self.device)
-            no_obj_mask = torch.ones(batch_size, self.num_anchors, grid_size, grid_size, 
+            # Create target tensors - now using grid_h and grid_w separately
+            obj_mask = torch.zeros(batch_size, self.num_anchors, grid_h, grid_w, 
+                                dtype=torch.bool, device=self.device)
+            no_obj_mask = torch.ones(batch_size, self.num_anchors, grid_h, grid_w, 
                                     dtype=torch.bool, device=self.device)
-            tx = torch.zeros(batch_size, self.num_anchors, grid_size, grid_size, 
-                           device=self.device)
-            ty = torch.zeros(batch_size, self.num_anchors, grid_size, grid_size, 
-                           device=self.device)
-            tw = torch.zeros(batch_size, self.num_anchors, grid_size, grid_size, 
-                           device=self.device)
-            th = torch.zeros(batch_size, self.num_anchors, grid_size, grid_size, 
-                           device=self.device)
-            tcls = torch.zeros(batch_size, self.num_anchors, grid_size, grid_size, self.num_classes, 
-                             device=self.device)
+            tx = torch.zeros(batch_size, self.num_anchors, grid_h, grid_w, 
+                            device=self.device)
+            ty = torch.zeros(batch_size, self.num_anchors, grid_h, grid_w, 
+                            device=self.device)
+            tw = torch.zeros(batch_size, self.num_anchors, grid_h, grid_w, 
+                            device=self.device)
+            th = torch.zeros(batch_size, self.num_anchors, grid_h, grid_w, 
+                            device=self.device)
+            tcls = torch.zeros(batch_size, self.num_anchors, grid_h, grid_w, self.num_classes, 
+                            device=self.device)
             
             # Process target boxes
             for target in targets:
@@ -353,28 +353,48 @@ class YOLOLoss(nn.Module):
                 if target.size(0) == 0:
                     continue
                 
-                # Extract target information
-                b = target[:, 0].long()  # batch index
-                cls = target[:, 1].long()  # class index
-                x = target[:, 2] * grid_size  # center x (grid units)
-                y = target[:, 3] * grid_size  # center y (grid units)
-                w = target[:, 4] * self.input_dim  # width (pixel units)
-                h = target[:, 5] * self.input_dim  # height (pixel units)
-                
-                # Convert to grid cell coordinates
-                gx = x.floor().long()
-                gy = y.floor().long()
-                
-                # Get fractional part of center coordinates
-                tx_target = x - gx
-                ty_target = y - gy
-                
-                # Choose best anchor based on IoU
-                for i, (a_w, a_h) in enumerate(scaled_anchors):
-                    # Calculate IoU between target and anchor
-                    iou = self.bbox_iou(torch.tensor([0, 0, w, h]), torch.tensor([0, 0, a_w, a_h]))
+                # Process each object in this target batch separately
+                for obj_idx in range(target.size(0)):
+                    # Extract target information for this specific object
+                    b = target[obj_idx, 0].long().item()  # batch index
+                    cls = target[obj_idx, 1].long().item()  # class index
                     
-                    # Update masks and targets
+                    # Convert normalized coords to grid coordinates
+                    # Use grid_w for x and grid_h for y to handle non-square grids
+                    x = target[obj_idx, 2] * grid_w  # center x (grid units)
+                    y = target[obj_idx, 3] * grid_h  # center y (grid units)
+                    w = target[obj_idx, 4] * self.input_dim  # width (pixel units)
+                    h = target[obj_idx, 5] * self.input_dim  # height (pixel units)
+                    
+                    # Skip invalid targets (those outside the grid)
+                    if x < 0 or y < 0 or x > grid_w-1 or y > grid_h-1:
+                        continue
+                        
+                    # Convert to grid cell coordinates
+                    gx = int(x)
+                    gy = int(y)
+                    
+                    # Get fractional part of center coordinates
+                    tx_target = x - gx
+                    ty_target = y - gy
+                    
+                    # Find best anchor based on IoU
+                    best_iou = 0
+                    best_anchor = 0
+                    
+                    for i, (a_w, a_h) in enumerate(scaled_anchors):
+                        # Calculate IoU between target and anchor
+                        iou = self.bbox_iou(
+                            torch.tensor([0, 0, w, h], device=self.device), 
+                            torch.tensor([0, 0, a_w, a_h], device=self.device)
+                        )
+                        
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_anchor = i
+                    
+                    # Update masks and targets using the best anchor
+                    i = best_anchor
                     obj_mask[b, i, gy, gx] = True
                     no_obj_mask[b, i, gy, gx] = False
                     
@@ -395,21 +415,31 @@ class YOLOLoss(nn.Module):
             pred_obj = torch.sigmoid(pred_obj)
             pred_cls = torch.sigmoid(pred_cls)
             
-            # Calculate losses
-            # Box coordinate loss (x, y)
-            loss_x = self.mse_loss(pred_box[..., 0][obj_mask], tx[obj_mask])
-            loss_y = self.mse_loss(pred_box[..., 1][obj_mask], ty[obj_mask])
+            # Calculate losses only if there are objects
+            if obj_mask.sum() > 0:
+                # Box coordinate loss (x, y)
+                loss_x = self.mse_loss(pred_box[..., 0][obj_mask], tx[obj_mask])
+                loss_y = self.mse_loss(pred_box[..., 1][obj_mask], ty[obj_mask])
+                
+                # Box size loss (w, h)
+                loss_w = self.mse_loss(pred_box[..., 2][obj_mask], tw[obj_mask])
+                loss_h = self.mse_loss(pred_box[..., 3][obj_mask], th[obj_mask])
+                
+                # Objectness loss
+                loss_obj = self.bce_loss(pred_obj[obj_mask], torch.ones_like(pred_obj[obj_mask]))
+                
+                # Class prediction loss
+                loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
+            else:
+                loss_x = torch.tensor(0.0, device=self.device)
+                loss_y = torch.tensor(0.0, device=self.device)
+                loss_w = torch.tensor(0.0, device=self.device)
+                loss_h = torch.tensor(0.0, device=self.device)
+                loss_obj = torch.tensor(0.0, device=self.device)
+                loss_cls = torch.tensor(0.0, device=self.device)
             
-            # Box size loss (w, h)
-            loss_w = self.mse_loss(pred_box[..., 2][obj_mask], tw[obj_mask])
-            loss_h = self.mse_loss(pred_box[..., 3][obj_mask], th[obj_mask])
-            
-            # Objectness loss
-            loss_obj = self.bce_loss(pred_obj[obj_mask], torch.ones_like(pred_obj[obj_mask]))
+            # No object loss - always calculated
             loss_no_obj = self.bce_loss(pred_obj[no_obj_mask], torch.zeros_like(pred_obj[no_obj_mask]))
-            
-            # Class prediction loss
-            loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
             
             # Total loss for this scale
             scale_loss = loss_x + loss_y + loss_w + loss_h + loss_obj + self.no_obj_weight * loss_no_obj + self.cls_weight * loss_cls

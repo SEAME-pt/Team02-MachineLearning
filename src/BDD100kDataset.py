@@ -161,12 +161,18 @@ class BDD100KDataset(Dataset):
         # Convert lane mask to required format
         bin_labels = lane_mask.astype(np.float32)[None, ...]  # Add channel dimension
         
-        # Apply transformations based on training mode
-        if self.is_train:
-            return self.augmentation(image, bin_labels)
+        if obj_targets:
+            obj_targets = torch.tensor(obj_targets, dtype=torch.float32)
         else:
-            image = self.transform(image)
-            return image, bin_labels
+            obj_targets = torch.zeros((0, 5), dtype=torch.float32)
+
+        # # Apply transformations based on training mode
+        # if self.is_train:
+        #     return self.augmentation(image, bin_labels)
+        # else:
+        image = self.transform(image)
+        bin_labels = torch.from_numpy(lane_mask.astype(np.float32)[None, ...]) 
+        return image, bin_labels, obj_targets
 
     def visualize(self, indices=None, num_samples=3):
         """

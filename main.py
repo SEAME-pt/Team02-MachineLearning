@@ -3,10 +3,27 @@ from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
 import torch.nn as nn
 import torch.optim as optim
 from src.CombinedDataset import CombinedLaneDataset
-from src.train import train_model
+from src.ObjectDetection import SimpleYOLO, YOLOLoss, generate_anchors
+from src.train import train_model, train_yolo_model
 from src.unet import UNet
 import os
 import numpy as np
+
+def yolo_collate_fn(batch):
+        """
+        Custom collate function for batching tuples with variable-sized object targets
+        """
+        # Unpack the batch of tuples
+        images, masks, targets = zip(*batch)
+        
+        # Stack images and masks (which have fixed sizes)
+        images = torch.stack(images)
+        masks = torch.stack(masks)
+        
+        # Keep targets as a list (each image can have different number of objects)
+        # No need to stack these
+        
+        return images, masks, targets
 
 def main():
     # Set device
@@ -61,7 +78,7 @@ def main():
     # Create the combined dataset with built-in train/val split
     combined_dataset = CombinedLaneDataset(
         # tusimple_config=tusimple_config, 
-        sea_config=sea_config, 
+        # sea_config=sea_config, 
         # carla_config=carla_config, 
         bdd100k_config=bdd100k_config,  # Add BDD100K config
         val_split=0.0
@@ -109,16 +126,47 @@ def main():
         train_dataset, 
         batch_size=8, 
         sampler=sampler,
-        num_workers=os.cpu_count() // 2
+        num_workers=os.cpu_count() // 2,
+        collate_fn=yolo_collate_fn
     )
     
-    # Initialize model
-    model = UNet().to(device)
-    criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    # # Initialize model
+    # model = UNet().to(device)
+    # criterion = nn.BCEWithLogitsLoss()
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
     
     # Train model
-    model = train_model(model, train_loader, criterion, optimizer, device, epochs=20)
+    # model = train_model(model, train_loader, criterion, optimizer, device, epochs=20)
+
+    # YOLO model and loss parameters
+    num_classes = 6  # Assuming 6 classes: car, bus, truck, pedestrian, traffic light, traffic sign
+    input_size = 256  # Match your dataset input size
+    
+    # Generate anchors for your dataset
+    # These should be tuned for your specific dataset - these are just example values
+    anchors = generate_anchors(num_anchors=9, input_size=input_size)
+    anchors = torch.tensor(anchors).float()  # Convert to tensor
+
+    # Initialize YOLO model for object detection
+    yolo_model = SimpleYOLO(num_classes=num_classes, anchors=anchors).to(device)
+    yolo_optimizer = optim.Adam(yolo_model.parameters(), lr=1e-4)
+
+    yolo_criterion = YOLOLoss(
+        anchors=anchors,
+        num_classes=num_classes,
+        input_dim=input_size,
+        device=device
+    )
+
+    trained_yolo_model = train_yolo_model(
+        yolo_model, 
+        train_loader, 
+        yolo_criterion, 
+        yolo_optimizer, 
+        device, 
+        epochs=20
+    )
+
 
 if __name__ == '__main__':
     main()

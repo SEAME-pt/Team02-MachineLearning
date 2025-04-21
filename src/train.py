@@ -1,6 +1,7 @@
 import torch
 from tqdm import tqdm
 import numpy as np
+from src.ObjectDetection import SimpleYOLO, YOLOLoss, generate_anchors
 
 # Training function
 def train_model(model, train_loader, criterion, optimizer, device, epochs=10):
@@ -27,20 +28,45 @@ def train_model(model, train_loader, criterion, optimizer, device, epochs=10):
                         leave=True, position=0, 
                         bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}')
         
-        for inputs, targets in train_bar:
-            inputs = inputs.to(device)
-            targets = targets.to(device)
+        for batch_idx, (images, masks, obj_targets) in enumerate(train_bar):
+            # Move images to device
+            images = images.to(device)
             
+            # For YOLO loss, we need to add batch indices to targets
+            targets_with_batch = []
+            for i, target in enumerate(obj_targets):
+                if target.size(0) > 0:  # Check if there are any targets
+                    # Add batch index as first column
+                    batch_indices = torch.full((target.size(0), 1), i, 
+                                             dtype=torch.float32, device=device)
+                    target = torch.cat([batch_indices, target.to(device)], dim=1)
+                    targets_with_batch.append(target)
+                else:
+                    # Empty target
+                    targets_with_batch.append(torch.zeros((0, 6), device=device))
+            
+            # Zero gradients
             optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
+            
+            # Forward pass
+            predictions = model(images)
+            
+            # Calculate loss
+            loss = criterion(predictions, targets_with_batch)
+            
+            # Backward pass and optimize
             loss.backward()
             optimizer.step()
             
-            train_loss += loss.item()
-            train_bar.set_postfix(loss=f'{loss.item():.4f}')
+            # Update statistics
+            running_loss += loss.item()
+            
+            # Update progress bar
+            train_bar.set_postfix({"Loss": f"{loss.item():.4f}"})
         
-        avg_train_loss = train_loss / len(train_loader)
+        # Calculate epoch statistics
+        avg_loss = running_loss / len(train_loader)
+        print(f"Epoch {epoch+1}/{epochs} completed, Avg Loss: {avg_loss:.4f}")
         
         # # Validation phase
         # model.eval()
@@ -75,4 +101,54 @@ def train_model(model, train_loader, criterion, optimizer, device, epochs=10):
         print(f'  Validation loss improved! Saving model...')
         torch.save(model.state_dict(), f'Models/temp/lane_model2_epoch_{epoch+1}.pth')
     
-    print(f'Training completed. Best validation loss: {best_val_loss:.4f}')
+
+# Train YOLO model
+def train_yolo_model(model, train_loader, criterion, optimizer, device, epochs=20):
+    """
+    Train the YOLO model specifically for object detection
+    """
+    model.train()
+    
+    for epoch in range(epochs):
+        running_loss = 0.0
+        train_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs} [Train]')
+        
+        for batch_idx, (images, masks, obj_targets) in enumerate(train_bar):
+            # Move images to device
+            images = images.to(device)
+            
+            # Prepare targets with batch indices
+            targets_with_batch = []
+            for i, target in enumerate(obj_targets):
+                if target.size(0) > 0:
+                    batch_indices = torch.full((target.size(0), 1), i, 
+                                             dtype=torch.float32, device=device)
+                    target = torch.cat([batch_indices, target.to(device)], dim=1)
+                    targets_with_batch.append(target)
+                else:
+                    targets_with_batch.append(torch.zeros((0, 6), device=device))
+            
+            # Zero gradients
+            optimizer.zero_grad()
+            
+            # Forward pass
+            predictions = model(images)
+            
+            # Calculate loss using YOLO loss
+            loss = criterion(predictions, targets_with_batch)
+            
+            # Backward pass and optimize
+            loss.backward()
+            optimizer.step()
+            
+            # Update statistics
+            running_loss += loss.item()
+            train_bar.set_postfix({"Loss": f"{loss.item():.4f}"})
+        
+        avg_loss = running_loss / len(train_loader)
+        print(f"Epoch {epoch+1}/{epochs}, Avg Loss: {avg_loss:.4f}")
+        
+        # Save model checkpoint
+        torch.save(model.state_dict(), f'Models/yolo_model_epoch_{epoch+1}.pth')
+    
+    return model
