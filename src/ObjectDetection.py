@@ -469,62 +469,22 @@ class YOLOLoss(nn.Module):
         return inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
 
-def generate_anchors(num_anchors=9, input_size=416):
+def generate_anchors(num_anchors=9, input_size=128):
     """
-    Generate anchor boxes for the YOLO model
-    
-    For BDD100K dataset, these anchors should be adjusted based on your specific objects
+    Generate anchor boxes optimized for BDD100K dataset
+    with 256×128 input
     """
-    # These are example anchors similar to YOLOv3
-    # Anchors are in pixel units for a 416x416 input
+    # BDD100K-optimized anchors for 256×128 input
     anchors = [
-        # Small objects (small scale)
-        [10, 13], [16, 30], [33, 23],
-        # Medium objects (medium scale)
-        [30, 61], [62, 45], [59, 119],  
-        # Large objects (large scale)
-        [116, 90], [156, 198], [373, 326]
+        # Small objects (traffic lights, distant cars)
+        [8, 16], [16, 12], [24, 20],
+        # Medium objects (nearby cars, trucks)
+        [32, 24], [48, 30], [64, 48],
+        # Large objects (nearby buses, trucks, close-up vehicles)
+        [96, 56], [128, 80], [192, 112]
     ]
     
-    # Group by scale (3 anchors per scale)
+    # Group by scale
     anchors = np.array(anchors).reshape(3, 3, 2)
     
     return anchors
-
-def create_model(num_classes, input_size=416):
-    """
-    Create the YOLO model with appropriate anchors
-    
-    Args:
-        num_classes: Number of object classes to detect
-        input_size: Input image size (assumes square input)
-    
-    Returns:
-        YOLO model instance
-    """
-    # Generate anchors
-    anchors = generate_anchors(input_size=input_size)
-    
-    # Create model
-    model = SimpleYOLO(num_classes, anchors)
-    
-    return model
-
-
-# Example usage
-if __name__ == "__main__":
-    # BDD100K has 10 object categories
-    num_classes = 10  
-    input_size = 416
-    
-    # Create model
-    model = create_model(num_classes, input_size)
-    print(model)
-    
-    # Example forward pass
-    dummy_input = torch.randn(1, 3, input_size, input_size)
-    outputs = model(dummy_input)
-    
-    # Print output shapes
-    for i, output in enumerate(outputs):
-        print(f"Detection scale {i+1} output shape: {output.shape}")
