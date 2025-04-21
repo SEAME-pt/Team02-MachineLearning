@@ -157,14 +157,14 @@ def draw_detections(image, detections, conf_threshold=0.25):
 
 def main():
     # Load both models
-    yolo_model = load_yolo_model('Models/yolo_model_final.pth')
+    yolo_model = load_yolo_model('Models/yolo_model_epoch_5.pth')
     lane_model = load_lane_model('Models/temp/lane_model2_epoch_18.pth')
     
     # Set input dimensions
     input_size = (256, 128)  # (width, height)
     
     # Choose video source
-    video_path = "assets/seame_data.mp4"
+    video_path = "assets/road3.mp4"
     cap = cv2.VideoCapture(video_path)
 
     
@@ -182,8 +182,8 @@ def main():
         # Run inference with both models
         with torch.no_grad():
             # Lane detection
-            lane_predictions = lane_model(img_tensor)
-            lane_predictions = torch.sigmoid(lane_predictions)
+            # lane_predictions = lane_model(img_tensor)
+            # lane_predictions = torch.sigmoid(lane_predictions)
             
             # Object detection
             yolo_predictions = yolo_model(img_tensor)
@@ -203,10 +203,10 @@ def main():
                 )
         
         # Overlay lane predictions first
-        result_frame = overlay_lane_predictions(frame, lane_predictions)
+        # result_frame = overlay_lane_predictions(frame, lane_predictions)
         
         # Then draw object detections
-        result_frame = draw_detections(result_frame, processed_detections)
+        result_frame = draw_detections(frame, processed_detections)
         
         # Display processing stats on the frame
         cv2.putText(result_frame, f"Frame: {int(cap.get(cv2.CAP_PROP_POS_FRAMES))}", 
@@ -222,7 +222,7 @@ def main():
     
     # Release resources
     cap.release()
-    out.release()
+    # out.release()
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":

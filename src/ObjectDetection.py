@@ -139,15 +139,6 @@ class SimpleYOLO(nn.Module):
     def predict_boxes(self, detections, input_dim, conf_thresh=0.5):
         """
         Convert raw detector outputs to bounding boxes
-        
-        Args:
-            detections: List of detector outputs from forward pass
-            input_dim: Original input dimension (height, width)
-            conf_thresh: Confidence threshold for filtering detections
-            
-        Returns:
-            List of predictions [batch, num_boxes, 7] where each box is
-            [x1, y1, x2, y2, obj_conf, cls_conf, cls_idx]
         """
         batch_size = detections[0].size(0)
         all_boxes = []
@@ -163,29 +154,29 @@ class SimpleYOLO(nn.Module):
                 # Get grid dimensions
                 grid_h, grid_w = detection.size(2), detection.size(3)
                 
-                # Create grid cell offset matrix
-                grid_y, grid_x = torch.meshgrid(torch.arange(grid_h), torch.arange(grid_w), indexing='ij')
-                grid_y = grid_y.view(1, 1, grid_h, grid_w, 1).to(detection.device)
-                grid_x = grid_x.view(1, 1, grid_h, grid_w, 1).to(detection.device)
+                # Extract prediction for this batch item
+                pred = detection[i]  # Shape [3, 16, 32, 11]
                 
-                # Extract batch item
-                pred = detection[i]
+                # Create grid with exact same dimensions as pred[...,0]
+                grid_y = torch.arange(grid_h, device=detection.device).view(1, grid_h, 1).repeat(self.num_anchors, 1, grid_w)
+                grid_x = torch.arange(grid_w, device=detection.device).view(1, 1, grid_w).repeat(self.num_anchors, grid_h, 1)
                 
                 # Apply sigmoid to center coordinates and confidence
                 pred[..., 0:2] = torch.sigmoid(pred[..., 0:2])
                 pred[..., 4:] = torch.sigmoid(pred[..., 4:])
                 
-                # Calculate bounding box coordinates
+                # Calculate bounding box coordinates - grid_x and pred now have compatible shapes
                 pred[..., 0] = pred[..., 0] + grid_x  # x center
                 pred[..., 1] = pred[..., 1] + grid_y  # y center
                 
                 # Apply anchors to width and height
                 anchors = anchors.to(detection.device)
-                anchor_w = anchors[:, 0].view(1, 3, 1, 1, 1)
-                anchor_h = anchors[:, 1].view(1, 3, 1, 1, 1)
+                anchor_w = anchors[:, 0].view(self.num_anchors, 1, 1)
+                anchor_h = anchors[:, 1].view(self.num_anchors, 1, 1)
                 
                 pred[..., 2] = torch.exp(pred[..., 2]) * anchor_w  # width
                 pred[..., 3] = torch.exp(pred[..., 3]) * anchor_h  # height
+                
                 
                 # Convert to x1, y1, x2, y2 format
                 pred_boxes = pred[..., :4].clone()
@@ -194,12 +185,15 @@ class SimpleYOLO(nn.Module):
                 pred_boxes[..., 2] = pred[..., 0] + pred[..., 2] / 2  # x2
                 pred_boxes[..., 3] = pred[..., 1] + pred[..., 3] / 2  # y2
                 
-                # Scale to original image size
-                stride = input_dim[0] / grid_h
-                pred_boxes[..., 0] *= stride
-                pred_boxes[..., 1] *= stride
-                pred_boxes[..., 2] *= stride
-                pred_boxes[..., 3] *= stride
+                # Scale to original image dimensions
+                # Use separate scaling factors for width and height
+                stride_h = input_dim / grid_h
+                stride_w = input_dim * 2 / grid_w  # Assuming width is 2× height
+                
+                pred_boxes[..., 0] *= stride_w  # Scale x coordinates
+                pred_boxes[..., 2] *= stride_w
+                pred_boxes[..., 1] *= stride_h  # Scale y coordinates
+                pred_boxes[..., 3] *= stride_h
                 
                 # Get confidence and class predictions
                 obj_conf = pred[..., 4:5]
