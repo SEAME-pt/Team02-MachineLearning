@@ -140,11 +140,11 @@ def main():
 
     # YOLO model and loss parameters
     num_classes = 6  # Assuming 6 classes: car, bus, truck, pedestrian, traffic light, traffic sign
-    input_size = 256  # Match your dataset input size
+    input_size = 128  # Match your dataset input size
     
     # Generate anchors for your dataset
     # These should be tuned for your specific dataset - these are just example values
-    anchors = generate_anchors(num_anchors=9, input_size=input_size)
+    anchors = generate_anchors()
     anchors = torch.tensor(anchors).float()  # Convert to tensor
 
     # Initialize YOLO model for object detection

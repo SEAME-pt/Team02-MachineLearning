@@ -469,7 +469,7 @@ class YOLOLoss(nn.Module):
         return inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
 
-def generate_anchors(num_anchors=9, input_size=128):
+def generate_anchors():
     """
     Generate anchor boxes optimized for BDD100K dataset
     with 256×128 input
