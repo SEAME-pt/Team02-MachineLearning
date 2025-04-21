@@ -67,8 +67,8 @@ def main():
     }
     
     bdd100k_config = {
-        'img_dir': '/Users/ruipedropires/SEAME/bdd100k/bdd100k/images/100k/train',
-        'labels_file': '/Users/ruipedropires/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json',
+        'img_dir': '/home/luis_t2/SEAME/bdd100k/bdd100k/images/100k/train',
+        'labels_file': '/home/luis_t2/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json',
         'width': 256,
         'height': 128,
         'is_train': True,
@@ -164,7 +164,7 @@ def main():
         yolo_criterion, 
         yolo_optimizer, 
         device, 
-        epochs=20
+        epochs=40
     )
 
 

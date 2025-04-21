@@ -3,7 +3,7 @@ import json
 import cv2
 import numpy as np
 import torch
-from .augmentation import LaneDetectionAugmentation
+# from .augmentation import LaneDetectionAugmentation
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
@@ -32,10 +32,10 @@ class BDD100KDataset(Dataset):
         self.is_train = is_train
         self.thickness = thickness  # Added thickness parameter
         self.transform = get_image_transform()
-        self.augmentation = LaneDetectionAugmentation(
-            height=height, 
-            width=width,
-        )
+        # self.augmentation = LaneDetectionAugmentation(
+        #     height=height, 
+        #     width=width,
+        # )
         
         # Load annotations
         with open(self.labels_file, 'r') as f:
@@ -48,7 +48,7 @@ class BDD100KDataset(Dataset):
             self.img_to_annot[item['name']] = item
         
         # Define object categories we care about
-        self.obj_categories = ['car', 'bus', 'truck', 'pedestrian', 'traffic light', 'traffic sign']
+        self.obj_categories = ['car', 'bus', 'truck', 'pedestrian', 'traffic light']
         self.category_to_id = {cat: i for i, cat in enumerate(self.obj_categories)}
         
         # Get all image files
@@ -174,63 +174,131 @@ class BDD100KDataset(Dataset):
         bin_labels = torch.from_numpy(lane_mask.astype(np.float32)[None, ...]) 
         return image, bin_labels, obj_targets
 
-    def visualize(self, indices=None, num_samples=3):
+    def interactive_visualize(self, start_idx=0):
         """
-        Visualize images with their lane masks
+        Interactive visualization using OpenCV that allows navigating through samples
+        
+        Controls:
+        - Right arrow: next image
+        - Left arrow: previous image
+        - 'q' or ESC: quit the visualization
         
         Args:
-            indices: List of specific indices to visualize, or None for random samples
-            num_samples: Number of samples to visualize if indices is None
+            start_idx: Index to start visualization from
         """
-        import matplotlib.pyplot as plt
         import random
         
-        # If no indices provided, choose random samples
-        if indices is None:
-            if len(self) <= num_samples:
-                indices = list(range(len(self)))
-            else:
-                indices = random.sample(range(len(self)), num_samples)
-        # If a single index is provided, convert to list
-        elif isinstance(indices, int):
-            indices = [indices]
+        idx = start_idx if 0 <= start_idx < len(self) else 0
         
-        # Create figure
-        fig = plt.figure(figsize=(12, 5 * len(indices)))
+        print("==== BDD100K Interactive Visualization ====")
+        print("Controls:")
+        print("  → (Right Arrow): Next image")
+        print("  ← (Left Arrow): Previous image")
+        print("  q or ESC: Quit")
         
-        for i, idx in enumerate(indices):
-            # Get sample
+        while True:
+            # Get sample data
             img_path, img_name = self.samples[idx]
             
-            # Load image directly
+            # Load image
             image = cv2.imread(img_path)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if image is None:
+                print(f"Could not read image: {img_path}, skipping...")
+                idx = (idx + 1) % len(self)
+                continue
+            
+            # Get original dimensions
             orig_h, orig_w = image.shape[:2]
             
-            # Resize image for display
-            image = cv2.resize(image, (self.width, self.height))
+            # Resize for display
+            image_display = cv2.resize(image, (self.width, self.height))
             
-            # Get lane mask
-            _, bin_labels = self.__getitem__(idx)
-            if isinstance(bin_labels, torch.Tensor):
-                bin_labels = bin_labels.numpy()
+            # Create a copy for overlays
+            overlay = image_display.copy()
             
-            # Create subplots for this sample
-            ax1 = fig.add_subplot(len(indices), 2, i*2 + 1)
-            ax2 = fig.add_subplot(len(indices), 2, i*2 + 2)
+            # Get processed data
+            _, lane_mask, obj_targets = self.__getitem__(idx)
             
-            # Show original image
-            ax1.imshow(image)
-            ax1.set_title(f"Image {idx}: {img_name}")
+            # Convert tensors if needed
+            if isinstance(lane_mask, torch.Tensor):
+                lane_mask = lane_mask.detach().cpu().numpy()
             
-            # Show lane mask
-            if bin_labels.ndim > 2:
-                bin_labels = bin_labels[0]  # Remove channel dimension
-            ax2.imshow(bin_labels, cmap='gray')
-            ax2.set_title(f"Lane Mask {idx}")
+            if isinstance(obj_targets, torch.Tensor):
+                obj_targets = obj_targets.detach().cpu().numpy()
+            
+            # Create separate visualizations
+            if lane_mask.ndim > 2:
+                lane_mask = lane_mask[0]  # Remove channel dimension
+            
+            # Create colored lane mask for overlay
+            lane_overlay = np.zeros_like(image_display)
+            lane_binary = (lane_mask > 0.5).astype(np.uint8)
+            lane_colored = cv2.cvtColor(lane_binary * 255, cv2.COLOR_GRAY2BGR)
+            lane_colored[lane_binary > 0] = [0, 255, 255]  # Yellow for lanes
+            
+            # Blend the lane overlay with the image
+            cv2.addWeighted(image_display, 0.7, lane_colored, 0.3, 0, overlay)
+            
+            # Draw bounding boxes for objects
+            for box in obj_targets:
+                class_id, x_center, y_center, width, height = box
+                
+                # Convert normalized coordinates to pixel
+                x_center_px = int(x_center * self.width)
+                y_center_px = int(y_center * self.height)
+                width_px = int(width * self.width)
+                height_px = int(height * self.height)
+                
+                # Calculate top-left and bottom-right corners
+                x1 = int(x_center_px - width_px / 2)
+                y1 = int(y_center_px - height_px / 2)
+                x2 = int(x_center_px + width_px / 2)
+                y2 = int(y_center_px + height_px / 2)
+                
+                # Ensure coordinates are within bounds
+                x1 = max(0, min(x1, self.width - 1))
+                y1 = max(0, min(y1, self.height - 1))
+                x2 = max(0, min(x2, self.width - 1))
+                y2 = max(0, min(y2, self.height - 1))
+                
+                # Get class name
+                class_id = int(class_id)
+                class_name = self.obj_categories[class_id] if class_id < len(self.obj_categories) else f"Class {class_id}"
+                
+                # Draw bounding box
+                color = (0, 0, 255)  # Red for objects
+                cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
+                
+                # Add text background
+                text_size, _ = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                cv2.rectangle(overlay, (x1, y1 - text_size[1] - 4), (x1 + text_size[0], y1), color, -1)
+                
+                # Add class label
+                cv2.putText(overlay, class_name, (x1, y1 - 5), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            
+            # Add text with sample info
+            info_text = f"Sample {idx}/{len(self)-1}: {os.path.basename(img_name)}"
+            cv2.putText(overlay, info_text, (10, 20), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+            
+            # Show the combined visualization
+            cv2.imshow('BDD100K Dataset Visualization', overlay)
+            
+            # Wait for key press
+            key = cv2.waitKey(0) & 0xFF
+            
+            # Handle key presses
+            if key == 27 or key == ord('q'):  # ESC or 'q' to quit
+                break
+            elif key == 83 or key == ord('n'):  # Right arrow or 'n' for next
+                idx = (idx + 1) % len(self)
+            elif key == 81 or key == ord('p'):  # Left arrow or 'p' for previous
+                idx = (idx - 1) % len(self)
         
-        plt.tight_layout()
-        plt.show()
+        # Clean up
+        cv2.destroyAllWindows()
+        print("Visualization ended")
 
 
 # Simple usage example
@@ -250,6 +318,9 @@ if __name__ == "__main__":
     
     print(f"Dataset size: {len(dataset)}")
     
-    # Visualize samples
+    # Use interactive visualization to navigate through samples
     if len(dataset) > 0:
-        dataset.visualize(num_samples=3)
+        # Start visualization from a random sample
+        import random
+        random_idx = random.randint(0, len(dataset) - 1)
+        dataset.interactive_visualize(start_idx=random_idx)
