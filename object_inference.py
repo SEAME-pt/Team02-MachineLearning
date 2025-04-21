@@ -180,7 +180,7 @@ def visualize_raw_predictions(frame, predictions):
 def main():
     # Load both models
     yolo_model = load_yolo_model('Models/yolo_model_epoch_5.pth')
-    lane_model = load_lane_model('Models/temp/lane_model2_epoch_18.pth')
+    # lane_model = load_lane_model('Models/temp/lane_model2_epoch_18.pth')
     
     # Set input dimensions
     input_size = (256, 128)  # (width, height)
