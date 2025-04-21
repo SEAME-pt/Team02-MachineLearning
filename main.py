@@ -22,10 +22,10 @@ def main():
 
     # Your dataset configs
     tusimple_config = {
-        'json_paths': ["/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
-                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
-                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
-        'img_dir': '/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/',
+        'json_paths': ["/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
+                      "/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
+                      "/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
+        'img_dir': '/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/',
         'width': 256,
         'height': 128,
         'is_train': True,
@@ -33,8 +33,8 @@ def main():
     }
 
     carla_config = {
-        'json_paths': ["/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
-        'img_dir': '/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
+        'json_paths': ["/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
+        'img_dir': '/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
         'width': 256,
         'height': 128,
         'is_train': True,
@@ -42,16 +42,16 @@ def main():
     }
     
     sea_config = {
-        'img_dir': '/home/luis_t2/SEAME/Dataset/frames',
-        'mask_dir': '/home/luis_t2/SEAME/Dataset/masks',
+        'img_dir': '/Users/ruipedropires/SEAME/Dataset/frames',
+        'mask_dir': '/Users/ruipedropires/SEAME/Dataset/masks',
         'width': 256,
         'height': 128,
         'is_train': True
     }
     
     bdd100k_config = {
-        'img_dir': '/home/luis_t2/SEAME/bdd100k/bdd100k/images/100k/train',
-        'labels_file': '/home/luis_t2/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json',
+        'img_dir': '/Users/ruipedropires/SEAME/bdd100k/bdd100k/images/100k/train',
+        'labels_file': '/Users/ruipedropires/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json',
         'width': 256,
         'height': 128,
         'is_train': True,
@@ -60,9 +60,9 @@ def main():
     
     # Create the combined dataset with built-in train/val split
     combined_dataset = CombinedLaneDataset(
-        tusimple_config=tusimple_config, 
+        # tusimple_config=tusimple_config, 
         sea_config=sea_config, 
-        carla_config=carla_config, 
+        # carla_config=carla_config, 
         bdd100k_config=bdd100k_config,  # Add BDD100K config
         val_split=0.0
     )
