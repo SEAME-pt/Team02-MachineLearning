@@ -91,45 +91,38 @@ def overlay_lane_predictions(image, prediction, threshold=0.6):
     return overlay
 
 # Function to draw detected objects on the image
-def draw_detections(image, detections, conf_threshold=0.05):
+def draw_detections(image, detections, conf_threshold=0.05, model_size=(256, 128)):
     result_img = image.copy()
-    h, w = image.shape[:2]
+    orig_h, orig_w = image.shape[:2]
+    model_w, model_h = model_size
+    
+    # Calculate scaling factors
+    scale_x = orig_w / model_w
+    scale_y = orig_h / model_h
     
     for detection in detections:
         # Skip if no detections
         if detection.size(0) == 0:
-            print("Empty detection batch")
             continue
-        
-        print(f"Processing {detection.size(0)} detections")
         
         # Process each detection
         for i in range(detection.size(0)):
             x1, y1, x2, y2, obj_conf, cls_conf, cls_idx = detection[i]
             
-            # Debug raw values
-            print(f"Raw box: x1={x1.item():.3f}, y1={y1.item():.3f}, x2={x2.item():.3f}, y2={y2.item():.3f}, " 
-                  f"obj_conf={obj_conf.item():.3f}, cls_conf={cls_conf.item():.3f}")
-            
             # Skip low confidence detections
             score = float(obj_conf * cls_conf)
             if score < conf_threshold:
-                # print(f"Low confidence: {score:.3f} < {conf_threshold}")
                 continue
             
-            # Convert coordinates to integers
-            x1 = max(0, min(w-1, int(x1.item())))
-            y1 = max(0, min(h-1, int(y1.item())))
-            x2 = max(0, min(w-1, int(x2.item())))
-            y2 = max(0, min(h-1, int(y2.item())))
+            # Scale coordinates to original image dimensions
+            x1 = int(x1.item() * scale_x)
+            y1 = int(y1.item() * scale_y)
+            x2 = int(x2.item() * scale_x)
+            y2 = int(y2.item() * scale_y)
             
             # Validate box dimensions
-            if x2 <= x1 or y2 <= y1 or x1 >= w or y1 >= h or x2 <= 0 or y2 <= 0:
-                print(f"Invalid box: ({x1},{y1},{x2},{y2}) in image ({w},{h})")
+            if x2 <= x1 or y2 <= y1 or x1 >= orig_w or y1 >= orig_h or x2 <= 0 or y2 <= 0:
                 continue
-            
-            # Draw the actual box
-            # print(f"Drawing box at: ({x1},{y1},{x2},{y2})")
             
             # Get the class index and select color
             cls_idx = int(cls_idx.item())
@@ -138,9 +131,20 @@ def draw_detections(image, detections, conf_threshold=0.05):
             
             # Draw rectangle and label
             cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(result_img, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            
+            # Prepare label text with confidence
+            (text_width, text_height), baseline = cv2.getTextSize(
+                label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            
+            # Draw label background for better visibility
+            cv2.rectangle(result_img, 
+                         (x1, y1 - text_height - baseline - 5), 
+                         (x1 + text_width, y1), 
+                         color, -1)
+                         
+            cv2.putText(result_img, label, (x1, y1 - 5), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     
-    # IMPORTANT: Return the modified image
     return result_img
 
 def visualize_raw_predictions(frame, predictions):
@@ -216,7 +220,9 @@ def main():
         # result_frame = overlay_lane_predictions(frame, lane_predictions)
         
         # Then draw object detections
-        result_frame = draw_detections(frame, processed_detections)
+        result_frame = draw_detections(frame, processed_detections, 
+                              conf_threshold=0.01, 
+                              model_size=input_size)
         # result_frame = visualize_raw_predictions(frame, yolo_predictions)
         
         # Display the result
