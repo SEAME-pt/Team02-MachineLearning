@@ -206,7 +206,7 @@ def main():
             detections = yolo_model.predict_boxes(
                 yolo_predictions, 
                 input_dim=input_size[1],  # Height 
-                conf_thresh=0.01
+                conf_thresh=0.1
             )
             
             # Apply non-maximum suppression to remove overlapping boxes
@@ -221,7 +221,7 @@ def main():
         
         # Then draw object detections
         result_frame = draw_detections(frame, processed_detections, 
-                              conf_threshold=0.01, 
+                              conf_threshold=0.1, 
                               model_size=input_size)
         # result_frame = visualize_raw_predictions(frame, yolo_predictions)
         
