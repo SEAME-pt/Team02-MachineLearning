@@ -31,9 +31,9 @@ COLORS = [
 ]
 
 # Load the YOLO model
-def load_yolo_model(model_path, num_classes=6, input_size=256):
+def load_yolo_model(model_path, num_classes=6):
     # Generate anchors
-    anchors = generate_anchors(input_size=input_size)
+    anchors = generate_anchors()
     
     # Create model
     model = SimpleYOLO(num_classes, anchors).to(device)
@@ -171,7 +171,7 @@ def visualize_raw_predictions(frame, predictions):
 
 def main():
     # Load both models
-    yolo_model = load_yolo_model('Models/yolo_model_epoch_5.pth')
+    yolo_model = load_yolo_model('Models/yolo_model_epoch_10.pth')
     # lane_model = load_lane_model('Models/temp/lane_model2_epoch_18.pth')
     
     # Set input dimensions
@@ -206,14 +206,14 @@ def main():
             detections = yolo_model.predict_boxes(
                 yolo_predictions, 
                 input_dim=input_size[1],  # Height 
-                conf_thresh=0.3
+                conf_thresh=0.5
             )
             
             # Apply non-maximum suppression to remove overlapping boxes
             processed_detections = []
             for batch_boxes in detections:
                 processed_detections.append(
-                    yolo_model.non_max_suppression(batch_boxes, nms_thresh=0.45)
+                    yolo_model.non_max_suppression(batch_boxes, nms_thresh=0.9)
                 )
         
         # Overlay lane predictions first
@@ -221,7 +221,7 @@ def main():
         
         # Then draw object detections
         result_frame = draw_detections(frame, processed_detections, 
-                              conf_threshold=0.3, 
+                              conf_threshold=0.5, 
                               model_size=input_size)
         # result_frame = visualize_raw_predictions(frame, yolo_predictions)
         
