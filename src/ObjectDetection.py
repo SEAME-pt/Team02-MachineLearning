@@ -60,7 +60,10 @@ class SimpleYOLO(nn.Module):
         super(SimpleYOLO, self).__init__()
         
         self.num_classes = num_classes
-        self.anchors = torch.tensor(anchors).float().view(-1, 3, 2)
+        if isinstance(anchors, torch.Tensor):
+            self.anchors = anchors.clone().detach().float().view(-1, 3, 2)
+        else:
+            self.anchors = torch.tensor(anchors).float().view(-1, 3, 2)
         self.num_anchors = self.anchors.size(1)
         
         # Backbone
