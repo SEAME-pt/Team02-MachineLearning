@@ -155,6 +155,28 @@ def draw_detections(image, detections, conf_threshold=0.25):
     
     return result_img
 
+def visualize_raw_predictions(frame, predictions):
+    """Show raw prediction heatmaps for debugging"""
+    result = frame.copy()
+    
+    # Get the first prediction (first batch, first scale)
+    pred = predictions[0][0]  # Shape: [3, H, W, C]
+    
+    # Get objectness confidence from the first anchor
+    obj_conf = pred[0, :, :, 4].cpu().numpy()
+    
+    # Normalize to 0-255 for visualization
+    obj_conf = (obj_conf * 255).astype(np.uint8)
+    obj_conf = cv2.resize(obj_conf, (frame.shape[1], frame.shape[0]))
+    
+    # Create a heatmap
+    heatmap = cv2.applyColorMap(obj_conf, cv2.COLORMAP_JET)
+    
+    # Blend with original image
+    result = cv2.addWeighted(result, 0.7, heatmap, 0.3, 0)
+    
+    return result
+
 def main():
     # Load both models
     yolo_model = load_yolo_model('Models/yolo_model_epoch_5.pth')
@@ -192,7 +214,7 @@ def main():
             detections = yolo_model.predict_boxes(
                 yolo_predictions, 
                 input_dim=input_size[1],  # Height 
-                conf_thresh=0.3
+                conf_thresh=0.1
             )
             
             # Apply non-maximum suppression to remove overlapping boxes
@@ -206,7 +228,8 @@ def main():
         # result_frame = overlay_lane_predictions(frame, lane_predictions)
         
         # Then draw object detections
-        result_frame = draw_detections(frame, processed_detections)
+        # result_frame = draw_detections(frame, processed_detections)
+        result_frame = visualize_raw_predictions(frame, yolo_predictions)
         
         # Display processing stats on the frame
         cv2.putText(result_frame, f"Frame: {int(cap.get(cv2.CAP_PROP_POS_FRAMES))}", 
