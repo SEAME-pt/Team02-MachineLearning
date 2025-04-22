@@ -98,7 +98,7 @@ def main():
         yolo_criterion, 
         yolo_optimizer, 
         device, 
-        epochs=10
+        epochs=50
     )
 
 

@@ -48,6 +48,6 @@ def train_yolo_model(model, train_loader, criterion, optimizer, device, epochs=2
         print(f"Epoch {epoch+1}/{epochs}, Avg Loss: {avg_loss:.4f}")
         
         # Save model checkpoint
-        torch.save(model.state_dict(), f'Models/Obj/yolo2_model_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'Models/Obj/yolo3_model_epoch_{epoch+1}.pth')
     
     return model
