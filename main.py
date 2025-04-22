@@ -1,31 +1,10 @@
 import torch
-from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
-import torch.nn as nn
+from torch.utils.data import DataLoader
 import torch.optim as optim
-from src.CombinedDataset import CombinedLaneDataset
 from src.COCODataset import COCODataset
 from src.ObjectDetection import SimpleYOLO, YOLOLoss
-from src.anchors import generate_anchors
-from src.train import train_model, train_yolo_model
-from src.unet import UNet
+from src.train import train_yolo_model
 import os
-import numpy as np
-
-def yolo_collate_fn(batch):
-        """
-        Custom collate function for batching tuples with variable-sized object targets
-        """
-        # Unpack the batch of tuples
-        images, masks, targets = zip(*batch)
-        
-        # Stack images and masks (which have fixed sizes)
-        images = torch.stack(images)
-        masks = torch.stack(masks)
-        
-        # Keep targets as a list (each image can have different number of objects)
-        # No need to stack these
-        
-        return images, masks, targets
 
 def collate_fn(batch):
     """
@@ -76,12 +55,15 @@ def main():
         73: 13,  # laptop - might indicate distracted pedestrians
     }
 
+    num_classes = max(class_map.values())
+    input_size = (384, 192) 
+
     # Initialize dataset
     coco_dataset = COCODataset(
         img_dir=coco_train_dir,
         annotations_file=coco_ann_file,
-        width=384, 
-        height=192,  # Same as in your BDD100K setup
+        width=input_size[0], 
+        height=input_size[1],
         class_map=class_map,
         is_train=True
     )
@@ -89,30 +71,26 @@ def main():
     train_loader = DataLoader(
         coco_dataset, 
         batch_size=8, 
-        # sampler=sampler,
         shuffle=True,
         num_workers=os.cpu_count() // 2,
         collate_fn=collate_fn
     )
 
-    num_classes = max(class_map.values())
-    input_size = 192 
-    
-    # Generate anchors for your dataset
-    # These should be tuned for your specific dataset - these are just example values
-    anchors = generate_anchors(input_size=(384, 192), method='adaptive')
-    anchors = torch.tensor(anchors).float()  # Convert to tensor
-
     # Initialize YOLO model for object detection
-    yolo_model = SimpleYOLO(num_classes=num_classes, anchors=anchors).to(device)
-    yolo_optimizer = optim.Adam(yolo_model.parameters(), lr=1e-4)
+    yolo_model = SimpleYOLO(
+        num_classes=num_classes, 
+        input_size=input_size,
+        use_default_anchors=False
+    ).to(device)
 
     yolo_criterion = YOLOLoss(
-        anchors=anchors,
+        anchors=yolo_model.anchors,
         num_classes=num_classes,
-        input_dim=input_size,
+        input_dim=input_size[1],
         device=device
     )
+
+    yolo_optimizer = optim.Adam(yolo_model.parameters(), lr=1e-4)
 
     train_yolo_model(
         yolo_model, 
@@ -120,7 +98,7 @@ def main():
         yolo_criterion, 
         yolo_optimizer, 
         device, 
-        epochs=40
+        epochs=10
     )
 
 

@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
-import torch.nn.functional as F
-import numpy as np
-from torchvision.models import ResNet18_Weights
 from torchvision.models import MobileNet_V2_Weights
 
 class ConvBlock(nn.Module):
@@ -47,16 +44,22 @@ class DetectionBlock(nn.Module):
 
 class SimpleYOLO(nn.Module):
     """YOLO-like model with multi-scale detection using anchor boxes"""
-    def __init__(self, num_classes, anchors):
+    def __init__(self, num_classes, input_size=(256, 128), use_default_anchors=False):
         super(SimpleYOLO, self).__init__()
         
         self.num_classes = num_classes
-        if isinstance(anchors, torch.Tensor):
-            self.anchors = anchors.clone().detach().float().view(-1, 3, 2)
+        self.input_size = input_size
+        
+        # Generate anchors directly in the model initialization
+        if use_default_anchors:
+            anchors = self._get_default_anchors()
         else:
-            self.anchors = torch.tensor(anchors).float().view(-1, 3, 2)
+            anchors = self._generate_adaptive_anchors(input_size)
+            
+        self.register_buffer('anchors', anchors)
         self.num_anchors = self.anchors.size(1)
             
+        # MobileNetV2 backbone setup
         backbone = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
         features = backbone.features
         self.backbone_layer1 = features[:7]   # First part (up to stride 8)
@@ -105,6 +108,46 @@ class SimpleYOLO(nn.Module):
         detect1 = self.detect3(f1_cat)
         
         return [detect1, detect2, detect3]
+    
+    def _get_default_anchors(self):
+        """Return default anchors for common object detection"""
+        default_anchors = [
+            # Small objects (traffic lights, distant cars)
+            [[8, 16], [16, 12], [24, 20]],
+            # Medium objects (nearby cars, trucks)
+            [[32, 24], [48, 30], [64, 48]],
+            # Large objects (nearby buses, trucks, close-up vehicles)
+            [[96, 56], [128, 80], [192, 112]]
+        ]
+        return torch.tensor(default_anchors).float().view(-1, 3, 2)
+        
+    def _generate_adaptive_anchors(self, input_size):
+        """Generate resolution-adaptive anchors based on input size"""
+        # Base anchors for 416×416
+        base_anchors = [
+            # Small anchors
+            [[10, 13], [16, 30], [33, 23]],
+            # Medium anchors
+            [[30, 61], [62, 45], [59, 119]],
+            # Large anchors
+            [[116, 90], [156, 198], [373, 326]]
+        ]
+        
+        # Scale anchors based on resolution ratio
+        width, height = input_size
+        width_ratio = width / 416
+        height_ratio = height / 416
+        
+        scaled_anchors = []
+        for scale_anchors in base_anchors:
+            scaled_scale = []
+            for w, h in scale_anchors:
+                scaled_w = w * width_ratio
+                scaled_h = h * height_ratio
+                scaled_scale.append([scaled_w, scaled_h])
+            scaled_anchors.append(scaled_scale)
+            
+        return torch.tensor(scaled_anchors).float()
     
     def predict_boxes(self, detections, input_dim, conf_thresh=0.5):
         """
