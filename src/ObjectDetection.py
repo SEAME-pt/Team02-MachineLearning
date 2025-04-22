@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
+import torchvision.models as models
 import torch.nn.functional as F
 import numpy as np
+from torchvision.models import ResNet18_Weights
+from torchvision.models import MobileNet_V2_Weights
 
 class ConvBlock(nn.Module):
     """Basic convolutional block with batch normalization and leaky ReLU"""
@@ -13,18 +16,6 @@ class ConvBlock(nn.Module):
         
     def forward(self, x):
         return self.leaky(self.bn(self.conv(x)))
-
-class ResidualBlock(nn.Module):
-    """Residual block with two convolutional layers and skip connection"""
-    def __init__(self, channels):
-        super(ResidualBlock, self).__init__()
-        self.block = nn.Sequential(
-            ConvBlock(channels, channels // 2, 1),
-            ConvBlock(channels // 2, channels, 3, padding=1)
-        )
-        
-    def forward(self, x):
-        return x + self.block(x)
 
 class DetectionBlock(nn.Module):
     """Detection block that outputs predictions for a specific scale"""
@@ -65,76 +56,54 @@ class SimpleYOLO(nn.Module):
         else:
             self.anchors = torch.tensor(anchors).float().view(-1, 3, 2)
         self.num_anchors = self.anchors.size(1)
+            
+        backbone = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
+        features = backbone.features
+        self.backbone_layer1 = features[:7]   # First part (up to stride 8)
+        self.backbone_layer2 = features[7:14] # Middle part (up to stride 16)
+        self.backbone_layer3 = features[14:]  # Last part (up to stride 32)
         
-        # Backbone
-        self.layer1 = nn.Sequential(
-            ConvBlock(3, 32, 3, padding=1),
-            ConvBlock(32, 64, 3, stride=2, padding=1),  # /2
-            ResidualBlock(64),
-            ConvBlock(64, 128, 3, stride=2, padding=1),  # /4
-            ResidualBlock(128),
-            ResidualBlock(128),
-            ConvBlock(128, 256, 3, stride=2, padding=1),  # /8
-            ResidualBlock(256),
-            ResidualBlock(256)
-        )  # 256 channels, 1/8 original size
+        # Feature dimensions for MobileNetV2
+        self.feature_dims = [32, 96, 320]  # Adjust based on actual output dimensions
+
+        # Detection layers (adjust channel numbers based on backbone)
+        self.detect1 = DetectionBlock(self.feature_dims[2], 256, self.num_anchors, num_classes)
         
-        self.layer2 = nn.Sequential(
-            ConvBlock(256, 512, 3, stride=2, padding=1),  # /16
-            ResidualBlock(512),
-            ResidualBlock(512)
-        )  # 512 channels, 1/16 original size
-        
-        self.layer3 = nn.Sequential(
-            ConvBlock(512, 1024, 3, stride=2, padding=1),  # /32
-            ResidualBlock(1024)
-        )  # 1024 channels, 1/32 original size
-        
-        # Detection layers
-        self.detect1 = DetectionBlock(1024, 512, self.num_anchors, num_classes)
-        
-        # Upsample and concatenation layers
+        # Upsampling and feature fusion
         self.up1 = nn.Sequential(
-            ConvBlock(1024, 256, 1),
+            ConvBlock(self.feature_dims[2], 128, 1),
             nn.Upsample(scale_factor=2, mode='nearest')
         )
         
-        self.detect2 = DetectionBlock(768, 256, self.num_anchors, num_classes)
+        # Adjust input channels based on concatenation
+        self.detect2 = DetectionBlock(self.feature_dims[1] + 128, 128, self.num_anchors, num_classes)
         
         self.up2 = nn.Sequential(
-            ConvBlock(768, 128, 1),
+            ConvBlock(self.feature_dims[1] + 128, 64, 1),
             nn.Upsample(scale_factor=2, mode='nearest')
         )
         
-        self.detect3 = DetectionBlock(384, 128, self.num_anchors, num_classes)
+        self.detect3 = DetectionBlock(self.feature_dims[0] + 64, 64, self.num_anchors, num_classes)
     
     def forward(self, x):
-        """
-        Forward pass with multi-scale detection
-        
-        Returns:
-            List of detection outputs at different scales
-        """
         # Backbone feature extraction
-        f1 = self.layer1(x)  # [batch, 256, h/8, w/8]
-        f2 = self.layer2(f1)  # [batch, 512, h/16, w/16]
-        f3 = self.layer3(f2)  # [batch, 1024, h/32, w/32]
+        f1 = self.backbone_layer1(x)
+        f2 = self.backbone_layer2(f1)
+        f3 = self.backbone_layer3(f2)
         
-        # Detection at the largest scale (smallest feature map)
+        # Detection at largest scale
         detect3 = self.detect1(f3)
         
-        # Upsample and concatenate with feature map 2
+        # Upsample and concatenate with medium features
         up = self.up1(f3)
         f2_cat = torch.cat([up, f2], dim=1)
         detect2 = self.detect2(f2_cat)
         
-        # Upsample and concatenate with feature map 1
+        # Upsample and concatenate with small features
         up = self.up2(f2_cat)
         f1_cat = torch.cat([up, f1], dim=1)
         detect1 = self.detect3(f1_cat)
         
-        # Return a list of detector outputs at different scales
-        # Each output has shape [batch, num_anchors, grid_h, grid_w, 5+num_classes]
         return [detect1, detect2, detect3]
     
     def predict_boxes(self, detections, input_dim, conf_thresh=0.5):
@@ -469,23 +438,3 @@ class YOLOLoss(nn.Module):
         # IoU
         return inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
-
-def generate_anchors():
-    """
-    Generate anchor boxes optimized for BDD100K dataset
-    with 256×128 input
-    """
-    # BDD100K-optimized anchors for 256×128 input
-    anchors = [
-        # Small objects (traffic lights, distant cars)
-        [8, 16], [16, 12], [24, 20],
-        # Medium objects (nearby cars, trucks)
-        [32, 24], [48, 30], [64, 48],
-        # Large objects (nearby buses, trucks, close-up vehicles)
-        [96, 56], [128, 80], [192, 112]
-    ]
-    
-    # Group by scale
-    anchors = np.array(anchors).reshape(3, 3, 2)
-    
-    return anchors

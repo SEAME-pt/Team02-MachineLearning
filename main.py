@@ -3,7 +3,9 @@ from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
 import torch.nn as nn
 import torch.optim as optim
 from src.CombinedDataset import CombinedLaneDataset
-from src.ObjectDetection import SimpleYOLO, YOLOLoss, generate_anchors
+from src.COCODataset import COCODataset
+from src.ObjectDetection import SimpleYOLO, YOLOLoss
+from src.anchors import generate_anchors
 from src.train import train_model, train_yolo_model
 from src.unet import UNet
 import os
@@ -25,6 +27,22 @@ def yolo_collate_fn(batch):
         
         return images, masks, targets
 
+def collate_fn(batch):
+    """
+    Custom collate function for object detection batches
+    with variable number of objects per image
+    """
+    images = []
+    targets = []
+    
+    for image, target in batch:
+        images.append(image)
+        targets.append(target)
+    
+    images = torch.stack(images, 0)
+    
+    return images, targets
+
 def main():
     # Set device
     if torch.cuda.is_available():
@@ -37,114 +55,52 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
-    # Your dataset configs
-    tusimple_config = {
-        'json_paths': ["/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
-                      "/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
-                      "/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
-        'img_dir': '/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/',
-        'width': 256,
-        'height': 128,
-        'is_train': True,
-        'thickness': 3
+    coco_train_dir = '/home/luis_t2/SEAME/train2017'
+    coco_ann_file = '/home/luis_t2/SEAME/annotations/instances_train2017.json'
+
+    # Map COCO categories to your custom indices (optional)
+    class_map = {
+        1: 0,    # person - critical for pedestrian detection
+        2: 1,    # bicycle - cyclists on roadways
+        3: 2,    # car - primary vehicle type
+        4: 3,    # motorcycle - smaller vehicles with different dynamics
+        6: 4,    # bus - large vehicles
+        8: 5,    # truck - large vehicles with different behavior
+        10: 6,   # traffic light - critical for navigation
+        13: 7,   # stop sign
+        17: 8,   # cat - animals that might cross roads
+        18: 9,   # dog - animals that might cross roads
+        41: 10,  # skateboard - alternative transportation on roads
+        63: 11,  # laptop - might indicate distracted pedestrians
+        67: 12,  # cell phone - indicates distracted pedestrians/drivers
+        73: 13,  # laptop - might indicate distracted pedestrians
     }
 
-    carla_config = {
-        'json_paths': ["/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
-        'img_dir': '/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
-        'width': 256,
-        'height': 128,
-        'is_train': True,
-        'thickness': 3
-    }
-    
-    sea_config = {
-        'img_dir': '/Users/ruipedropires/SEAME/Dataset/frames',
-        'mask_dir': '/Users/ruipedropires/SEAME/Dataset/masks',
-        'width': 256,
-        'height': 128,
-        'is_train': True
-    }
-    
-    bdd100k_config = {
-        'img_dir': '/home/luis_t2/SEAME/bdd100k/bdd100k/images/100k/train',
-        'labels_file': '/home/luis_t2/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json',
-        'width': 256,
-        'height': 128,
-        'is_train': True,
-        'thickness': 3
-    }
-    
-    # Create the combined dataset with built-in train/val split
-    combined_dataset = CombinedLaneDataset(
-        # tusimple_config=tusimple_config, 
-        # sea_config=sea_config, 
-        # carla_config=carla_config, 
-        bdd100k_config=bdd100k_config,  # Add BDD100K config
-        val_split=0.0
-    )
-    
-    # Get train and val datasets
-    train_dataset = combined_dataset.get_train_dataset()
-
-    # Create weights array for TRAINING data only
-    train_tusimple_size = train_dataset.tusimple_train_size
-    train_sea_size = train_dataset.sea_train_size
-    train_carla_size = train_dataset.carla_train_size
-    train_bdd100k_size = train_dataset.bdd100k_train_size  # Add BDD100K size
-    weights = np.zeros(train_dataset.train_size)
-
-    # Calculate weights for equal contribution (adjust percentages as needed)
-    total_samples = train_tusimple_size + train_sea_size + train_carla_size + train_bdd100k_size
-    tusimple_weight = 0.4 / (train_tusimple_size / total_samples) if train_tusimple_size > 0 else 0
-    sea_weight = 0.2 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
-    carla_weight = 0.2 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
-    bdd100k_weight = 0.2 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
-
-    # Apply weights to all samples
-    for i in range(train_dataset.train_size):
-        if i < train_tusimple_size:
-            weights[i] = tusimple_weight
-        elif i < train_tusimple_size + train_sea_size:
-            weights[i] = sea_weight
-        elif i < train_tusimple_size + train_sea_size + train_carla_size:
-            weights[i] = carla_weight
-        else:
-            weights[i] = bdd100k_weight
-
-    # Create sampler for TRAINING only
-    sampler = WeightedRandomSampler(
-        weights=weights,
-        num_samples=len(weights),
-        replacement=True
+    # Initialize dataset
+    coco_dataset = COCODataset(
+        img_dir=coco_train_dir,
+        annotations_file=coco_ann_file,
+        width=384, 
+        height=192,  # Same as in your BDD100K setup
+        class_map=class_map,
+        is_train=True
     )
 
-    print(f"Created weighted sampler: TuSimple={tusimple_weight:.4f}, SEA={sea_weight:.4f}, Carla={carla_weight:.4f}, BDD100K={bdd100k_weight:.4f}")
-
-    # Create dataloaders
     train_loader = DataLoader(
-        train_dataset, 
+        coco_dataset, 
         batch_size=8, 
-        sampler=sampler,
+        # sampler=sampler,
+        shuffle=True,
         num_workers=os.cpu_count() // 2,
-        collate_fn=yolo_collate_fn
+        collate_fn=collate_fn
     )
-    
-    # # Initialize model
-    # model = UNet().to(device)
-    # criterion = nn.BCEWithLogitsLoss()
-    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    
-    # Train model
-    # model = train_model(model, train_loader, criterion, optimizer, device, epochs=20)
 
-    # YOLO model and loss parameters
-    num_classes = 6  # Assuming 6 classes: car, bus, truck, pedestrian, traffic light, traffic sign
-    input_size = 128  # Match your dataset input size
+    num_classes = max(class_map.values())
+    input_size = 192 
     
     # Generate anchors for your dataset
     # These should be tuned for your specific dataset - these are just example values
-    anchors = generate_anchors()
+    anchors = generate_anchors(input_size=(384, 192), method='adaptive')
     anchors = torch.tensor(anchors).float()  # Convert to tensor
 
     # Initialize YOLO model for object detection
@@ -158,7 +114,7 @@ def main():
         device=device
     )
 
-    trained_yolo_model = train_yolo_model(
+    train_yolo_model(
         yolo_model, 
         train_loader, 
         yolo_criterion, 

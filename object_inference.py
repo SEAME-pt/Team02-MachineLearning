@@ -4,7 +4,8 @@ import cv2
 from torchvision import transforms
 import time
 
-from src.ObjectDetection import SimpleYOLO, generate_anchors
+from src.ObjectDetection import SimpleYOLO
+from src.anchors import generate_anchors
 from src.unet import UNet  # Keep the lane detection model
 
 # Set up device
@@ -18,22 +19,37 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
-# Class names for visualization
-CLASS_NAMES = ['Car', 'Bus', 'Truck', 'Pedestrian', 'Traffic Light', 'Traffic Sign']
-# Different colors for each class (BGR format for OpenCV)
+CLASS_NAMES = [
+    'Person', 'Bicycle', 'Car', 'Motorcycle', 'Bus', 'Truck',  
+    'Traffic Light', 'Stop Sign', 'Cat', 'Dog', 'Skateboard',
+    'Laptop', 'Cell Phone', 'Backpack'
+]
+
+# Also update COLORS to have enough colors for all classes
 COLORS = [
-    (0, 0, 255),    # Red for cars
-    (0, 165, 255),  # Orange for buses
-    (0, 255, 255),  # Yellow for trucks
-    (0, 255, 0),    # Green for pedestrians
-    (255, 0, 0),    # Blue for traffic lights
-    (255, 0, 255)   # Purple for traffic signs
+    (0, 0, 255),    # Red
+    (0, 255, 255),  # Yellow
+    (0, 165, 255),  # Orange
+    (0, 255, 0),    # Green
+    (255, 0, 0),    # Blue
+    (255, 0, 255),  # Purple
+    (255, 255, 0),  # Cyan
+    (128, 0, 255),  # Magenta
+    (0, 128, 255),  # Amber
+    (255, 0, 128),  # Pink
+    (128, 128, 0),  # Olive
+    (0, 0, 128),    # Navy
+    (128, 0, 0),    # Maroon
+    (0, 128, 0)     # Forest Green
 ]
 
 # Load the YOLO model
-def load_yolo_model(model_path, num_classes=6):
+def load_yolo_model(model_path, num_classes=14):
     # Generate anchors
-    anchors = generate_anchors()
+    anchors = generate_anchors(
+        input_size=(256, 128),  # Match your training resolution
+        method='adaptive'       # Use the adaptive method for inference
+    )
     
     # Create model
     model = SimpleYOLO(num_classes, anchors).to(device)
@@ -147,31 +163,57 @@ def draw_detections(image, detections, conf_threshold=0.05, model_size=(256, 128
     
     return result_img
 
-def visualize_raw_predictions(frame, predictions):
-    """Show raw prediction heatmaps for debugging"""
+# Improved function to visualize raw predictions with better filtering
+def visualize_raw_predictions(frame, predictions, threshold=0.3):
+    """
+    Show raw prediction heatmaps with thresholding to reduce noise
+    
+    Args:
+        frame: Original image frame
+        predictions: Raw YOLO predictions
+        threshold: Confidence threshold to filter noise
+    """
     result = frame.copy()
     
-    # Get the first prediction (first batch, first scale)
-    pred = predictions[0][0]  # Shape: [3, H, W, C]
+    # Create a combined heatmap across all scales and anchors
+    combined_heatmap = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.float32)
     
-    # Get objectness confidence from the first anchor
-    obj_conf = pred[0, :, :, 4].cpu().numpy()
+    # Process each scale
+    for scale_idx, scale_pred in enumerate(predictions):
+        pred = scale_pred[0]  # First batch
+        
+        # Process each anchor
+        for anchor_idx in range(pred.size(0)):
+            # Get objectness confidence
+            obj_conf = pred[anchor_idx, :, :, 4].cpu().numpy()
+            
+            # Resize to frame dimensions
+            resized_conf = cv2.resize(obj_conf, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_LINEAR)
+            
+            # Add to combined heatmap with threshold to reduce noise
+            combined_heatmap = np.maximum(combined_heatmap, resized_conf * (resized_conf > threshold))
     
-    # Normalize to 0-255 for visualization
-    obj_conf = (obj_conf * 255).astype(np.uint8)
-    obj_conf = cv2.resize(obj_conf, (frame.shape[1], frame.shape[0]))
+    # Normalize the heatmap for visualization
+    if np.max(combined_heatmap) > 0:
+        combined_heatmap = (combined_heatmap / np.max(combined_heatmap) * 255).astype(np.uint8)
+    else:
+        combined_heatmap = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
     
-    # Create a heatmap
-    heatmap = cv2.applyColorMap(obj_conf, cv2.COLORMAP_JET)
+    # Apply a colormap
+    heatmap = cv2.applyColorMap(combined_heatmap, cv2.COLORMAP_JET)
     
     # Blend with original image
     result = cv2.addWeighted(result, 0.7, heatmap, 0.3, 0)
+    
+    # Add helper text
+    cv2.putText(result, f"Confidence threshold: {threshold:.2f}", (10, 30), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     
     return result
 
 def main():
     # Load both models
-    yolo_model = load_yolo_model('Models/yolo_model_epoch_27.pth')
+    yolo_model = load_yolo_model('Models/Obj/yolo_model_epoch_7.pth')
     # lane_model = load_lane_model('Models/temp/lane_model2_epoch_18.pth')
     
     # Set input dimensions
@@ -206,14 +248,14 @@ def main():
             detections = yolo_model.predict_boxes(
                 yolo_predictions, 
                 input_dim=input_size[1],  # Height 
-                conf_thresh=0.5
+                conf_thresh=0.8
             )
             
             # Apply non-maximum suppression to remove overlapping boxes
             processed_detections = []
             for batch_boxes in detections:
                 processed_detections.append(
-                    yolo_model.non_max_suppression(batch_boxes, nms_thresh=0.9)
+                    yolo_model.non_max_suppression(batch_boxes, nms_thresh=0.05)
                 )
         
         # Overlay lane predictions first
@@ -221,7 +263,7 @@ def main():
         
         # Then draw object detections
         result_frame = draw_detections(frame, processed_detections, 
-                              conf_threshold=0.5, 
+                              conf_threshold=0.8, 
                               model_size=input_size)
         # result_frame = visualize_raw_predictions(frame, yolo_predictions)
         

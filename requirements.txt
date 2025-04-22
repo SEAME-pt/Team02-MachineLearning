@@ -7,3 +7,5 @@ numpy
 opencv-python
 albumentations
 onnx
+ultralytics
+pycocotools
