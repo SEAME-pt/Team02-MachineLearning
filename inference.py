@@ -3,10 +3,7 @@ import numpy as np
 import cv2
 from torchvision import transforms
 import time
-
 from src.ObjectDetection import SimpleYOLO
-from src.anchors import generate_anchors
-from src.unet import UNet  # Keep the lane detection model
 
 # Set up device
 if torch.cuda.is_available():
@@ -43,32 +40,6 @@ COLORS = [
     (0, 128, 0)     # Forest Green
 ]
 
-# Load the YOLO model
-def load_yolo_model(model_path, num_classes=14):
-    # Generate anchors
-    anchors = generate_anchors(
-        input_size=(256, 128),  # Match your training resolution
-        method='adaptive'       # Use the adaptive method for inference
-    )
-    
-    # Create model
-    model = SimpleYOLO(num_classes, anchors).to(device)
-    
-    # Load weights
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.eval()
-    
-    return model
-
-# Load the lane detection model
-def load_lane_model(model_path):
-    model = UNet().to(device)
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.eval()
-    
-    return model
-
-# Image preprocessing function (same as in original inference.py)
 def preprocess_image(image, target_size=(256, 128)):
     # Resize image
     img = cv2.resize(image, target_size)
@@ -88,23 +59,6 @@ def preprocess_image(image, target_size=(256, 128)):
     img_tensor = transform(img).unsqueeze(0).to(device)
     
     return img_tensor, img
-
-# Function to overlay lane predictions on image (same as in original inference.py)
-def overlay_lane_predictions(image, prediction, threshold=0.6):
-    # Convert prediction to binary mask
-    prediction = prediction.squeeze().cpu().detach().numpy()
-    lane_mask = (prediction > threshold).astype(np.uint8) * 255
-    
-    # Resize mask to match the original image size
-    lane_mask = cv2.resize(lane_mask, (image.shape[1], image.shape[0]))
-    
-    # Create a colored overlay
-    colored_mask = np.zeros_like(image)
-    colored_mask[lane_mask > 0] = [0, 255, 0]  # Green for lane markings
-    
-    # Apply the overlay with transparency
-    overlay = cv2.addWeighted(image, 0.7, colored_mask, 0.3, 0)
-    return overlay
 
 # Function to draw detected objects on the image
 def draw_detections(image, detections, conf_threshold=0.05, model_size=(256, 128)):
@@ -212,12 +166,15 @@ def visualize_raw_predictions(frame, predictions, threshold=0.3):
     return result
 
 def main():
-    # Load both models
-    yolo_model = load_yolo_model('Models/Obj/yolo_model_epoch_7.pth')
-    # lane_model = load_lane_model('Models/temp/lane_model2_epoch_18.pth')
-    
     # Set input dimensions
-    input_size = (256, 128)  # (width, height)
+    num_classes = max(CLASS_NAMES.values()) + 1
+    input_size = (384, 192)
+
+    yolo_model = SimpleYOLO(
+        num_classes=num_classes, 
+        input_size=input_size,
+        use_default_anchors=False
+    ).to(device)
     
     # Choose video source
     video_path = "assets/road3.mp4"
@@ -237,9 +194,6 @@ def main():
         
         # Run inference with both models
         with torch.no_grad():
-            # Lane detection
-            # lane_predictions = lane_model(img_tensor)
-            # lane_predictions = torch.sigmoid(lane_predictions)
             
             # Object detection
             yolo_predictions = yolo_model(img_tensor)
@@ -257,9 +211,6 @@ def main():
                 processed_detections.append(
                     yolo_model.non_max_suppression(batch_boxes, nms_thresh=0.05)
                 )
-        
-        # Overlay lane predictions first
-        # result_frame = overlay_lane_predictions(frame, lane_predictions)
         
         # Then draw object detections
         result_frame = draw_detections(frame, processed_detections, 

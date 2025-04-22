@@ -2,7 +2,6 @@ import torch
 import random
 from torch.utils.data import Dataset
 from src.SEAMEDataset import SEAMEDataset
-from src.TUSimpleDataset import TuSimpleDataset
 from src.CarlaDataset import CarlaDataset
 from src.BDD100kDataset import BDD100KDataset  # Import BDD100K dataset
 
@@ -25,21 +24,9 @@ class CombinedLaneDataset(Dataset):
         random.seed(seed)
         
         # Initialize dataset variables
-        self.tusimple_dataset = None
         self.sea_dataset = None
         self.carla_dataset = None
         self.bdd100k_dataset = None
-        
-        # Create datasets if configs are provided
-        if tusimple_config:
-            self.tusimple_dataset = TuSimpleDataset(
-                json_paths=tusimple_config['json_paths'],
-                img_dir=tusimple_config['img_dir'],
-                width=tusimple_config.get('width', 512),
-                height=tusimple_config.get('height', 256),
-                is_train=tusimple_config.get('is_train', True),
-                thickness=tusimple_config.get('thickness', 5)
-            )
         
         if sea_config:
             self.sea_dataset = SEAMEDataset(
@@ -79,20 +66,16 @@ class CombinedLaneDataset(Dataset):
     def _initialize_dataset_indices(self):
         """Initialize all dataset indices and splits"""
         # Store dataset sizes for indexing
-        self.tusimple_size = len(self.tusimple_dataset) if self.tusimple_dataset else 0
         self.sea_size = len(self.sea_dataset) if self.sea_dataset else 0
         self.carla_size = len(self.carla_dataset) if self.carla_dataset else 0
         self.bdd100k_size = len(self.bdd100k_dataset) if self.bdd100k_dataset else 0
         
         # Create indices for all samples
-        self.tusimple_indices = list(range(self.tusimple_size))
         self.sea_indices = list(range(self.sea_size))
         self.carla_indices = list(range(self.carla_size))
         self.bdd100k_indices = list(range(self.bdd100k_size))
         
         # Shuffle indices
-        if self.tusimple_size > 0:
-            random.shuffle(self.tusimple_indices)
         if self.sea_size > 0:
             random.shuffle(self.sea_indices)
         if self.carla_size > 0:
@@ -101,14 +84,11 @@ class CombinedLaneDataset(Dataset):
             random.shuffle(self.bdd100k_indices)
         
         # Split indices into train and validation
-        tusimple_val_size = int(self.tusimple_size * self.val_split)
         sea_val_size = int(self.sea_size * self.val_split)
         carla_val_size = int(self.carla_size * self.val_split)
         bdd100k_val_size = int(self.bdd100k_size * self.val_split)
         
         # Create train/val index lists
-        self.tusimple_train_indices = self.tusimple_indices[tusimple_val_size:] if self.tusimple_size > 0 else []
-        self.tusimple_val_indices = self.tusimple_indices[:tusimple_val_size] if self.tusimple_size > 0 else []
         
         self.sea_train_indices = self.sea_indices[sea_val_size:] if self.sea_size > 0 else []
         self.sea_val_indices = self.sea_indices[:sea_val_size] if self.sea_size > 0 else []
@@ -120,13 +100,11 @@ class CombinedLaneDataset(Dataset):
         self.bdd100k_val_indices = self.bdd100k_indices[:bdd100k_val_size] if self.bdd100k_size > 0 else []
         
         # Store sizes for each split
-        self.tusimple_train_size = len(self.tusimple_train_indices)
         self.sea_train_size = len(self.sea_train_indices)
         self.carla_train_size = len(self.carla_train_indices)
         self.bdd100k_train_size = len(self.bdd100k_train_indices)
         self.train_size = self.tusimple_train_size + self.sea_train_size + self.carla_train_size + self.bdd100k_train_size
         
-        self.tusimple_val_size = len(self.tusimple_val_indices)
         self.sea_val_size = len(self.sea_val_indices)
         self.carla_val_size = len(self.carla_val_indices)
         self.bdd100k_val_size = len(self.bdd100k_val_indices)
@@ -136,8 +114,6 @@ class CombinedLaneDataset(Dataset):
         
         # Print dataset summary
         print(f"Combined dataset created:")
-        if self.tusimple_size > 0:
-            print(f"TuSimple: {self.tusimple_train_size} train, {self.tusimple_val_size} validation")
         if self.sea_size > 0:
             print(f"SEA: {self.sea_train_size} train, {self.sea_val_size} validation")
         if self.carla_size > 0:
@@ -153,8 +129,6 @@ class CombinedLaneDataset(Dataset):
         # Update dataset is_train flags
         if is_validation:
             # Disable augmentation for validation
-            if self.tusimple_dataset:
-                self.tusimple_dataset.is_train = False
             if self.sea_dataset:
                 self.sea_dataset.is_train = False
             if self.carla_dataset:
@@ -163,8 +137,6 @@ class CombinedLaneDataset(Dataset):
                 self.bdd100k_dataset.is_train = False
         else:
             # Enable augmentation for training
-            if self.tusimple_dataset:
-                self.tusimple_dataset.is_train = True
             if self.sea_dataset:
                 self.sea_dataset.is_train = True
             if self.carla_dataset:

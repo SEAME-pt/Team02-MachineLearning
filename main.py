@@ -55,7 +55,7 @@ def main():
         73: 13,  # laptop - might indicate distracted pedestrians
     }
 
-    num_classes = max(class_map.values())
+    num_classes = max(class_map.values()) + 1
     input_size = (384, 192) 
 
     # Initialize dataset

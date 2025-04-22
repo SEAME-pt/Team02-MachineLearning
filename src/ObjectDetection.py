@@ -67,7 +67,7 @@ class SimpleYOLO(nn.Module):
         self.backbone_layer3 = features[14:]  # Last part (up to stride 32)
         
         # Feature dimensions for MobileNetV2
-        self.feature_dims = [32, 96, 320]  # Adjust based on actual output dimensions
+        self.feature_dims = [32, 96, 1280]  # Adjust based on actual output dimensions
 
         # Detection layers (adjust channel numbers based on backbone)
         self.detect1 = DetectionBlock(self.feature_dims[2], 256, self.num_anchors, num_classes)
