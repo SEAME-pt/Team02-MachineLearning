@@ -49,21 +49,10 @@ def main():
         'is_train': True
     }
     
-    bdd100k_config = {
-        'img_dir': '/Users/ruipedropires/SEAME/bdd100k/bdd100k/images/100k/train',
-        'labels_file': '/Users/ruipedropires/SEAME/bdd100k_labels_release/bdd100k/labels/bdd100k_labels_images_train.json',
-        'width': 256,
-        'height': 128,
-        'is_train': True,
-        'thickness': 3
-    }
-    
     # Create the combined dataset with built-in train/val split
     combined_dataset = CombinedLaneDataset(
-        # tusimple_config=tusimple_config, 
+        tusimple_config=tusimple_config, 
         sea_config=sea_config, 
-        # carla_config=carla_config, 
-        bdd100k_config=bdd100k_config,  # Add BDD100K config
         val_split=0.0
     )
     
@@ -73,27 +62,19 @@ def main():
     # Create weights array for TRAINING data only
     train_tusimple_size = train_dataset.tusimple_train_size
     train_sea_size = train_dataset.sea_train_size
-    train_carla_size = train_dataset.carla_train_size
-    train_bdd100k_size = train_dataset.bdd100k_train_size  # Add BDD100K size
     weights = np.zeros(train_dataset.train_size)
 
     # Calculate weights for equal contribution (adjust percentages as needed)
-    total_samples = train_tusimple_size + train_sea_size + train_carla_size + train_bdd100k_size
+    total_samples = train_tusimple_size + train_sea_size
     tusimple_weight = 0.4 / (train_tusimple_size / total_samples) if train_tusimple_size > 0 else 0
     sea_weight = 0.2 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
-    carla_weight = 0.2 / (train_carla_size / total_samples) if train_carla_size > 0 else 0
-    bdd100k_weight = 0.2 / (train_bdd100k_size / total_samples) if train_bdd100k_size > 0 else 0
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
         if i < train_tusimple_size:
             weights[i] = tusimple_weight
-        elif i < train_tusimple_size + train_sea_size:
-            weights[i] = sea_weight
-        elif i < train_tusimple_size + train_sea_size + train_carla_size:
-            weights[i] = carla_weight
         else:
-            weights[i] = bdd100k_weight
+            weights[i] = sea_weight
 
     # Create sampler for TRAINING only
     sampler = WeightedRandomSampler(
@@ -102,7 +83,7 @@ def main():
         replacement=True
     )
 
-    print(f"Created weighted sampler: TuSimple={tusimple_weight:.4f}, SEA={sea_weight:.4f}, Carla={carla_weight:.4f}, BDD100K={bdd100k_weight:.4f}")
+    print(f"Created weighted sampler: TuSimple={tusimple_weight:.4f}, SEA={sea_weight:.4f}")
 
     # Create dataloaders
     train_loader = DataLoader(
