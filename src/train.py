@@ -6,6 +6,19 @@ def train_yolo_model(model, train_loader, criterion, optimizer, device, epochs=2
     """
     Train the YOLO model specifically for object detection
     """
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5
+    )
+    
+    # Warm-up learning rate
+    warmup_epochs = 3
+    warmup_lr_scheduler = None
+    if warmup_epochs > 0:
+        warmup_lr_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer, start_factor=0.1, end_factor=1.0, total_iters=warmup_epochs * len(train_loader)
+        )
+
     model.train()
     
     for epoch in range(epochs):
@@ -39,6 +52,9 @@ def train_yolo_model(model, train_loader, criterion, optimizer, device, epochs=2
             # Backward pass and optimize
             loss.backward()
             optimizer.step()
+
+            if epoch < warmup_epochs:
+                warmup_lr_scheduler.step()
             
             # Update statistics
             running_loss += loss.item()
@@ -48,6 +64,13 @@ def train_yolo_model(model, train_loader, criterion, optimizer, device, epochs=2
         print(f"Epoch {epoch+1}/{epochs}, Avg Loss: {avg_loss:.4f}")
         
         # Save model checkpoint
-        torch.save(model.state_dict(), f'Models/Obj/yolo3_model_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'Models/Obj/yolo4_model_epoch_{epoch+1}.pth')
+        
+        # Update learning rate
+        scheduler.step(avg_loss)
+        new_lr = [group['lr'] for group in optimizer.param_groups][0]
+        if new_lr != old_lr:
+            print(f"Learning rate changed from {old_lr:.6f} to {new_lr:.6f}")
+        old_lr = new_lr
     
     return model
