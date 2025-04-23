@@ -7,6 +7,8 @@ def train_yolo_model(model, train_loader, criterion, optimizer, device, epochs=2
     Train the YOLO model specifically for object detection
     """
 
+    old_lr = 0
+
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5
     )
