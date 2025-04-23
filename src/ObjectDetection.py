@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
+import torch.nn.functional as F
 from torchvision.models import MobileNet_V2_Weights
 
 class ConvBlock(nn.Module):

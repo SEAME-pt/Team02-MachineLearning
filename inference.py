@@ -18,8 +18,7 @@ else:
 
 CLASS_NAMES = [
     'Person', 'Bicycle', 'Car', 'Motorcycle', 'Bus', 'Truck',  
-    'Traffic Light', 'Stop Sign', 'Cat', 'Dog', 'Skateboard',
-    'Laptop', 'Cell Phone', 'Backpack'
+    'Traffic Light', 'Stop Sign', 'Cat', 'Dog', 'Skateboard'
 ]
 
 # Also update COLORS to have enough colors for all classes
@@ -35,9 +34,6 @@ COLORS = [
     (0, 128, 255),  # Amber
     (255, 0, 128),  # Pink
     (128, 128, 0),  # Olive
-    (0, 0, 128),    # Navy
-    (128, 0, 0),    # Maroon
-    (0, 128, 0)     # Forest Green
 ]
 
 def preprocess_image(image, target_size=(256, 128)):

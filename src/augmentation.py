@@ -92,3 +92,39 @@ class LaneDetectionAugmentation:
             transformed_mask = transformed_mask.unsqueeze(0)
             
         return transformed_image, transformed_mask
+    
+class ObjectDetectionAugmentation:
+    def __init__(self, height=192, width=384):
+        self.transform = A.Compose([
+            # Basic spatial augmentations
+            A.HorizontalFlip(p=0.5),
+            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+            
+            # Simpler spatial transforms that work across versions
+            A.OneOf([
+                A.Affine(scale=(0.9, 1.1), translate_percent=0.05, p=0.7),
+                # Resize instead of crop (more stable API)
+                A.Resize(height=height, width=width, p=1.0),
+            ], p=0.5),
+            
+            # Color augmentations
+            A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=15, val_shift_limit=10, p=0.5),
+            
+            # Simpler weather augmentations
+            A.OneOf([
+                A.RandomShadow(p=0.5),
+                # A.RandomBrightness(p=0.5),
+            ], p=0.3),
+            
+            # Normalization
+            A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ToTensorV2()
+        ], bbox_params=A.BboxParams(
+            format='yolo',
+            min_visibility=0.3,
+            label_fields=['class_labels']
+        ))
+    
+    def __call__(self, image, bboxes, class_labels):
+        transformed = self.transform(image=image, bboxes=bboxes, class_labels=class_labels)
+        return transformed

@@ -6,6 +6,7 @@ import cv2
 from torch.utils.data import Dataset
 from pycocotools.coco import COCO
 import torchvision.transforms as transforms
+from .augmentation import ObjectDetectionAugmentation
 
 def get_image_transform():
     normalizer = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -36,7 +37,10 @@ class COCODataset(Dataset):
         self.is_train = is_train
         self.max_objects = max_objects
         self.transform = get_image_transform()
-        
+        if is_train:
+            self.augmentation = ObjectDetectionAugmentation(height=height, width=width)
+        else:
+            self.augmentation = None
         # Get all valid image IDs (those with annotations)
         self.img_ids = list(sorted(self.coco.imgs.keys()))
         
@@ -95,6 +99,7 @@ class COCODataset(Dataset):
         
         # Prepare target tensors for object detection (YOLO format)
         targets = []
+        class_labels = []
         
         for anno in annotations:
             # Skip crowd annotations
@@ -121,23 +126,51 @@ class COCODataset(Dataset):
             # Get class ID based on our mapping
             class_id = self.class_map[anno['category_id']]
             
-            targets.append([class_id, x_center, y_center, width, height])
-        
-        # Convert to tensor if we have targets
-        if targets:
-            targets = torch.tensor(targets, dtype=torch.float32)
+            targets.append([x_center, y_center, width, height])
+            class_labels.append(class_id)
+
+        # Apply augmentation if training
+        if self.is_train and self.augmentation is not None and targets:
+            try:
+                transformed = self.augmentation(image=image, bboxes=targets, class_labels=class_labels)
+                image = transformed['image']  # This is now a tensor
+                bboxes = transformed['bboxes']
+                class_labels = transformed['class_labels']
+                
+                # ADD THIS CODE: Format and return successfully augmented data
+                if bboxes:
+                    targets = []
+                    for i in range(len(bboxes)):
+                        targets.append([class_labels[i]] + list(bboxes[i]))
+                    targets = torch.tensor(targets, dtype=torch.float32)
+                else:
+                    targets = torch.zeros((0, 5), dtype=torch.float32)
+                return image, targets
+            except ValueError as e:
+                # If augmentation fails, fall back to just the transform
+                print(f"Augmentation error on image {img_id}, using basic transform instead")
+                if targets:
+                    for i in range(len(targets)):
+                        targets[i] = [class_labels[i]] + targets[i]
+                    targets = torch.tensor(targets, dtype=torch.float32)
+                else:
+                    targets = torch.zeros((0, 5), dtype=torch.float32)
+                return image, targets
         else:
-            targets = torch.zeros((0, 5), dtype=torch.float32)
+            # No augmentation, just transform the image and keep original targets
+            # Convert to tensor if we have targets
+            if targets:
+                # Add class_id to each box
+                for i in range(len(targets)):
+                    targets[i] = [class_labels[i]] + targets[i]
+                targets = torch.tensor(targets, dtype=torch.float32)
+            else:
+                targets = torch.zeros((0, 5), dtype=torch.float32)
+            
+            # Apply transforms
+            image = self.transform(image)
+            return image, targets
         
-        # Apply transforms
-        image = self.transform(image)
-        
-        return image, targets
-    
-    def get_img_info(self, idx):
-        """Get image info by index"""
-        img_id = self.img_ids[idx]
-        return self.coco.loadImgs(img_id)[0]
     
     def interactive_visualize(self, start_idx=0):
         """

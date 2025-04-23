@@ -50,9 +50,6 @@ def main():
         17: 8,   # cat - animals that might cross roads
         18: 9,   # dog - animals that might cross roads
         41: 10,  # skateboard - alternative transportation on roads
-        63: 11,  # laptop - might indicate distracted pedestrians
-        67: 12,  # cell phone - indicates distracted pedestrians/drivers
-        73: 13,  # laptop - might indicate distracted pedestrians
     }
 
     num_classes = max(class_map.values()) + 1
@@ -70,7 +67,7 @@ def main():
 
     train_loader = DataLoader(
         coco_dataset, 
-        batch_size=8, 
+        batch_size=16, 
         shuffle=True,
         num_workers=os.cpu_count() // 2,
         collate_fn=collate_fn
@@ -90,7 +87,7 @@ def main():
         device=device
     )
 
-    yolo_optimizer = optim.Adam(yolo_model.parameters(), lr=1e-4)
+    yolo_optimizer = optim.Adam(yolo_model.parameters(), lr=1.5e-4)
 
     train_yolo_model(
         yolo_model, 
