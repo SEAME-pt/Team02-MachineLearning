@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from src.CombinedDataset import CombinedLaneDataset
 from src.train import train_model
-from src.unet import UNet
+from src.unet import UNet, MobileNetV2UNet
 import os
 import numpy as np
 
@@ -20,32 +20,34 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
+    input_size = (384, 192)
+
     # Your dataset configs
     tusimple_config = {
-        'json_paths': ["/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
-                      "/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
-                      "/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
-        'img_dir': '/Users/ruipedropires/SEAME/LaneAnchor/assets/TUSimple/train_set/',
-        'width': 256,
-        'height': 128,
+        'json_paths': ["/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
+                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
+                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
+        'img_dir': '/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/',
+        'width': input_size[0],
+        'height': input_size[1],
         'is_train': True,
         'thickness': 3
     }
 
     carla_config = {
-        'json_paths': ["/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
-        'img_dir': '/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
-        'width': 256,
-        'height': 128,
+        'json_paths': ["/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
+        'img_dir': '/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
+        'width': input_size[0],
+        'height': input_size[1],
         'is_train': True,
         'thickness': 3
     }
     
     sea_config = {
-        'img_dir': '/Users/ruipedropires/SEAME/Dataset/frames',
-        'mask_dir': '/Users/ruipedropires/SEAME/Dataset/masks',
-        'width': 256,
-        'height': 128,
+        'img_dir': '/home/luis_t2/SEAME/Dataset/frames',
+        'mask_dir': '/home/luis_t2/SEAME/Dataset/masks',
+        'width': input_size[0],
+        'height': input_size[1],
         'is_train': True
     }
     
@@ -66,8 +68,8 @@ def main():
 
     # Calculate weights for equal contribution (adjust percentages as needed)
     total_samples = train_tusimple_size + train_sea_size
-    tusimple_weight = 0.4 / (train_tusimple_size / total_samples) if train_tusimple_size > 0 else 0
-    sea_weight = 0.2 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
+    tusimple_weight = 0.6 / (train_tusimple_size / total_samples) if train_tusimple_size > 0 else 0
+    sea_weight = 0.4 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
@@ -88,15 +90,15 @@ def main():
     # Create dataloaders
     train_loader = DataLoader(
         train_dataset, 
-        batch_size=8, 
+        batch_size=16, 
         sampler=sampler,
         num_workers=os.cpu_count() // 2
     )
     
     # Initialize model
-    model = UNet().to(device)
+    model = MobileNetV2UNet().to(device)
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
     # Train model
     model = train_model(model, train_loader, criterion, optimizer, device, epochs=20)
