@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import cv2
 from torchvision import transforms
-from src.unet import UNet
+from src.ObjectDetection import SimpleYOLO
 
 # Set up device
 if torch.cuda.is_available():
@@ -18,14 +18,27 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
+CLASS_NAMES = [
+    'Person', 'Bicycle', 'Car', 'Motorcycle', 'Bus', 'Truck',  
+    'Traffic Light', 'Stop Sign', 'Cat', 'Dog', 'Skateboard',
+    'Laptop', 'Cell Phone', 'Backpack'
+]
+
+num_classes = len(CLASS_NAMES) 
+input_size = (384, 192)
+
 # Load the trained model
-model = UNet().to(device)
-model.load_state_dict(torch.load('Models/temp/lane_model2_epoch_9.pth', map_location=device))
+model = SimpleYOLO(
+        num_classes=num_classes, 
+        input_size=input_size,
+        use_default_anchors=False
+    ).to(device)
+model.load_state_dict(torch.load('Models/Obj/yolo3_model_epoch_48.pth', map_location=device))
 model.eval()
 
-dummy_input = torch.randn(1, 3, 128, 256).to(device)  
+dummy_input = torch.randn(1, 3, 192, 384).to(device)  
 
-onnx_file_path = "Models/temp/lane_segmentation_model2_epoch9.onnx"
+onnx_file_path = "Models/Obj/yolo3_model_epoch_48.onnx"
 torch.onnx.export(
     model,                       # PyTorch model instance
     dummy_input,                 # Input to the model
