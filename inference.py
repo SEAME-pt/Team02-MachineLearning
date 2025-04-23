@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import cv2
 from torchvision import transforms
-from src.unet import UNet
+from src.unet import UNet, MobileNetV2UNet
 import time
 
 # Set up device
@@ -19,9 +19,11 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
+input_size = (384, 192)
+
 # Load the trained model
-model = UNet().to(device)
-model.load_state_dict(torch.load('Models/temp/lane_model2_epoch_9.pth', map_location=device))
+model = MobileNetV2UNet().to(device)
+model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_epoch_20.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -72,7 +74,7 @@ while True:
     time.sleep(0.05)  # Optional: Add a small delay to control frame rate
     
     # Preprocess the image
-    img_tensor, original_frame = preprocess_image(frame)
+    img_tensor, original_frame = preprocess_image(frame, target_size=input_size)
     
     # Run inference
     with torch.no_grad():

@@ -65,30 +65,50 @@ class LaneDetectionAugmentation:
             # Normalization and conversion to tensor
             A.Normalize(mean=self.mean, std=self.std),
             ToTensorV2()
-        ])
+        ], additional_targets={'mask1': 'mask'})
         
-    def __call__(self, image, mask):
+    def __call__(self, image, binary_mask, instance_mask=None):
         """
-        Apply transformations to image and mask
+        Apply transformations to image and masks
         
         Args:
             image: Input image (H, W, C) as numpy array
-            mask: Binary mask (H, W) or (1, H, W) as numpy array
+            binary_mask: Binary mask (H, W) or (1, H, W) as numpy array
+            instance_mask: Instance segmentation mask (H, W) as numpy array
                 
         Returns:
             transformed_image: Transformed image as tensor
-            transformed_mask: Transformed mask as tensor
+            transformed_binary_mask: Transformed binary mask as tensor
+            transformed_instance_mask: Transformed instance mask as tensor
         """
-        # If mask has a channel dimension, remove it for albumentations
-        if len(mask.shape) == 3 and mask.shape[0] == 1:
-            mask = mask.squeeze(0)  # Remove channel dimension
+        # Remove channel dimension from masks if present
+        if len(binary_mask.shape) == 3 and binary_mask.shape[0] == 1:
+            binary_mask = binary_mask.squeeze(0)
         
-        transformed = self.transform(image=image, mask=mask)
-        transformed_image = transformed['image']
-        transformed_mask = transformed['mask']
-        
-        # Ensure mask has channel dimension [1, H, W]
-        if len(transformed_mask.shape) == 2:
-            transformed_mask = transformed_mask.unsqueeze(0)
+        # Apply transformations to both masks
+        if instance_mask is not None:
+            transformed = self.transform(
+                image=image, 
+                mask=binary_mask,
+                mask1=instance_mask
+            )
+            transformed_image = transformed['image']
+            transformed_binary_mask = transformed['mask']
+            transformed_instance_mask = transformed['mask1']
             
-        return transformed_image, transformed_mask
+            # Ensure binary mask has channel dimension [1, H, W]
+            if len(transformed_binary_mask.shape) == 2:
+                transformed_binary_mask = transformed_binary_mask.unsqueeze(0)
+                
+            return transformed_image, transformed_binary_mask, transformed_instance_mask
+        else:
+            # Fallback to original behavior when no instance mask is provided
+            transformed = self.transform(image=image, mask=binary_mask)
+            transformed_image = transformed['image']
+            transformed_binary_mask = transformed['mask']
+            
+            # Ensure mask has channel dimension [1, H, W]
+            if len(transformed_binary_mask.shape) == 2:
+                transformed_binary_mask = transformed_binary_mask.unsqueeze(0)
+                
+            return transformed_image, transformed_binary_mask

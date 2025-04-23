@@ -5,27 +5,33 @@ import torchvision.models as models
 from torchvision.models import MobileNet_V2_Weights
 
 class MobileNetV2UNet(nn.Module):
-    def __init__(self, output_channels=1):
+    def __init__(self, binary_channels=1, instance_channels=4):
         super(MobileNetV2UNet, self).__init__()
         
         # Load pre-trained MobileNetV2 backbone
         self.backbone = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
         
-        # Get feature layers from MobileNetV2
+        # Feature extraction layers remain the same
         self.down1 = self.backbone.features[:2]    # Output: 16 channels
         self.down2 = self.backbone.features[2:4]   # Output: 24 channels
         self.down3 = self.backbone.features[4:7]   # Output: 32 channels
         self.down4 = self.backbone.features[7:14]  # Output: 96 channels
-        self.down5 = self.backbone.features[14:]   # Output: 320 channels
+        self.down5 = self.backbone.features[14:]   # Output: 1280 channels
         
-        # Upsampling path
-        self.up1 = up(320 + 96, 96)
-        self.up2 = up(96 + 32, 32)
-        self.up3 = up(32 + 24, 24)
-        self.up4 = up(24 + 16, 16)
+        # Shared upsampling path
+        self.up1 = up(1280, 96)
+        self.up2 = up(96, 32)
+        self.up3 = up(32, 24)
+        self.up4 = up(24, 16)
         
-        # Output layer
-        self.outc = outconv(16, output_channels)
+        # Binary segmentation output (original)
+        self.binary_outc = outconv(16, binary_channels)
+        
+        # Instance segmentation output (new)
+        self.instance_outc = outconv(16, instance_channels)
+        
+        # Final upsampling for both outputs
+        self.final_upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         
     def forward(self, x):
         # Downsampling through backbone
@@ -34,16 +40,23 @@ class MobileNetV2UNet(nn.Module):
         x3 = self.down3(x2)  # 1/8
         x4 = self.down4(x3)  # 1/16
         x5 = self.down5(x4)  # 1/32
-        
-        # Upsampling and concatenation with skip connections
+
+        # Shared upsampling path
         x = self.up1(x5, x4)
         x = self.up2(x, x3)
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         
-        # Final output
-        x = self.outc(x)
-        return x
+        # Binary segmentation output
+        binary_out = self.binary_outc(x)
+        binary_out = self.final_upsample(binary_out)
+        
+        # Instance segmentation output
+        instance_out = self.instance_outc(x)
+        instance_out = self.final_upsample(instance_out)
+        
+        # Return both outputs
+        return binary_out, instance_out
 
 class double_conv(nn.Module):
     '''(conv => BN => ReLU) * 2'''
@@ -90,7 +103,7 @@ class up(nn.Module):
     def __init__(self, in_ch, out_ch):
         super(up, self).__init__()
         self.up = nn.Upsample(scale_factor=2, mode='bilinear')
-        self.conv = double_conv(in_ch, out_ch)
+        self.conv = double_conv(in_ch + out_ch, out_ch)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)

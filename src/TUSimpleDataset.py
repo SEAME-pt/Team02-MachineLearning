@@ -19,6 +19,53 @@ def get_binary_labels(height, width, pts, thickness=5):
 
     return bin_img.astype(np.float32)[None, ...]
 
+def get_instance_labels(height, width, pts, thickness=5, max_lanes=3):
+    """
+    Generate instance segmentation labels with a unique ID for each lane
+    
+    Args:
+        height: Image height
+        width: Image width
+        pts: List of lane points
+        thickness: Thickness of lane lines
+        max_lanes: Maximum number of lanes to include (default 2)
+                   Note: output will have max_lanes+1 classes including background (0)
+    
+    Returns:
+        Instance segmentation mask with each lane having a unique ID
+    """
+    instance_img = np.zeros(shape=[height, width], dtype=np.uint8)
+    
+    # Sort lanes by their median x-position (left to right)
+    if pts:
+        # Calculate median x-coordinate for each lane
+        lane_positions = []
+        for lane in pts:
+            x_coords = [point[0] for point in lane]
+            median_x = np.median(x_coords)
+            lane_positions.append((median_x, lane))
+        
+        # Sort lanes by x-position
+        sorted_lanes = [lane for _, lane in sorted(lane_positions, key=lambda x: x[0])]
+        
+        # Limit number of lanes to max_lanes
+        sorted_lanes = sorted_lanes[:max_lanes]
+    else:
+        sorted_lanes = pts
+    
+    # Draw each lane with a unique ID (starting from 1)
+    for i, lane in enumerate(sorted_lanes):
+        # Use i+1 as the lane ID (0 is background)
+        lane_id = i + 1
+        cv2.polylines(
+            instance_img,
+            np.int32([lane]),
+            isClosed=False,
+            color=lane_id,
+            thickness=thickness)
+    
+    return instance_img.astype(np.int64)
+
 def get_image_transform():
     normalizer = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                       std=[0.229, 0.224, 0.225])
@@ -104,11 +151,13 @@ class TuSimpleDataset(Dataset):
         pts = [[(int(round(x*x_rate)), int(round(y*y_rate)))
                 for (x, y) in lane] for lane in pts]
 
-        bin_labels = get_binary_labels(self.height, self.width, pts,
-                                    thickness=self.thickness)
+        bin_labels = get_binary_labels(self.height, self.width, pts, thickness=self.thickness)
+        instance_labels = get_instance_labels(self.height, self.width, pts, thickness=self.thickness)
 
         if self.is_train:
-            return self.augmentation(image, bin_labels)
+            # You'll need to modify your augmentation to handle instance labels too
+            image, bin_labels, instance_labels = self.augmentation(image, bin_labels, instance_labels)
+            return image, bin_labels, instance_labels
         else:
             image = self.transform(image)
-            return image, bin_labels
+            return image, bin_labels, instance_labels

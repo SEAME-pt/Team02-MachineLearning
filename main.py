@@ -24,10 +24,10 @@ def main():
 
     # Your dataset configs
     tusimple_config = {
-        'json_paths': ["/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
-                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
-                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
-        'img_dir': '/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/',
+        'json_paths': ["/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0313.json",
+                      "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0531.json",
+                      "/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/label_data_0601.json"],
+        'img_dir': '/Users/ruipedropires/LaneNet/assets/TUSimple/train_set/',
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True,
@@ -35,8 +35,8 @@ def main():
     }
 
     carla_config = {
-        'json_paths': ["/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
-        'img_dir': '/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
+        'json_paths': ["/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
+        'img_dir': '/Users/ruipedropires/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True,
@@ -44,8 +44,8 @@ def main():
     }
     
     sea_config = {
-        'img_dir': '/home/luis_t2/SEAME/Dataset/frames',
-        'mask_dir': '/home/luis_t2/SEAME/Dataset/masks',
+        'img_dir': '/Users/ruipedropires/SEAME/Dataset/frames',
+        'mask_dir': '/Users/ruipedropires/SEAME/Dataset/masks',
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True
@@ -54,7 +54,7 @@ def main():
     # Create the combined dataset with built-in train/val split
     combined_dataset = CombinedLaneDataset(
         tusimple_config=tusimple_config, 
-        sea_config=sea_config, 
+        # sea_config=sea_config, 
         val_split=0.0
     )
     
@@ -68,8 +68,8 @@ def main():
 
     # Calculate weights for equal contribution (adjust percentages as needed)
     total_samples = train_tusimple_size + train_sea_size
-    tusimple_weight = 0.6 / (train_tusimple_size / total_samples) if train_tusimple_size > 0 else 0
-    sea_weight = 0.4 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
+    tusimple_weight = 1 / (train_tusimple_size / total_samples) if train_tusimple_size > 0 else 0
+    sea_weight = 0 / (train_sea_size / total_samples) if train_sea_size > 0 else 0
 
     # Apply weights to all samples
     for i in range(train_dataset.train_size):
