@@ -66,7 +66,7 @@ def train_yolo_model(model, train_loader, criterion, optimizer, device, epochs=2
         print(f"Epoch {epoch+1}/{epochs}, Avg Loss: {avg_loss:.4f}")
         
         # Save model checkpoint
-        torch.save(model.state_dict(), f'Models/Obj/yolo4_model_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'Models/Obj/yolo5_model_epoch_{epoch+1}.pth')
         
         # Update learning rate
         scheduler.step(avg_loss)

@@ -171,11 +171,11 @@ def main():
         use_default_anchors=False
     ).to(device)
 
-    yolo_model.load_state_dict(torch.load("Models/Obj/yolo4_model_epoch_1.pth", map_location=device))
+    yolo_model.load_state_dict(torch.load("Models/Obj/yolo4_model_epoch_58.pth", map_location=device))
     yolo_model.eval()
     
     # Choose video source
-    video_path = "assets/road2.mp4"
+    video_path = "assets/road3.mp4"
     cap = cv2.VideoCapture(video_path)
 
     
@@ -200,7 +200,7 @@ def main():
             detections = yolo_model.predict_boxes(
                 yolo_predictions, 
                 input_dim=input_size[1],  # Height 
-                conf_thresh=0.5
+                conf_thresh=0.8
             )
             
             # Apply non-maximum suppression to remove overlapping boxes
@@ -212,7 +212,7 @@ def main():
         
         # Then draw object detections
         result_frame = draw_detections(frame, processed_detections, 
-                              conf_threshold=0.5, 
+                              conf_threshold=0.7, 
                               model_size=input_size)
         # result_frame = visualize_raw_predictions(frame, yolo_predictions)
         

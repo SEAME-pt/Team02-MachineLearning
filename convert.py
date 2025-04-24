@@ -21,7 +21,6 @@ else:
 CLASS_NAMES = [
     'Person', 'Bicycle', 'Car', 'Motorcycle', 'Bus', 'Truck',  
     'Traffic Light', 'Stop Sign', 'Cat', 'Dog', 'Skateboard',
-    'Laptop', 'Cell Phone', 'Backpack'
 ]
 
 num_classes = len(CLASS_NAMES) 
@@ -33,12 +32,12 @@ model = SimpleYOLO(
         input_size=input_size,
         use_default_anchors=False
     ).to(device)
-model.load_state_dict(torch.load('Models/Obj/yolo3_model_epoch_48.pth', map_location=device))
+model.load_state_dict(torch.load('Models/Obj/yolo4_model_epoch_56.pth', map_location=device))
 model.eval()
 
 dummy_input = torch.randn(1, 3, 192, 384).to(device)  
 
-onnx_file_path = "Models/Obj/yolo3_model_epoch_48.onnx"
+onnx_file_path = "Models/Obj/yolo4_model_epoch_55.onnx"
 torch.onnx.export(
     model,                       # PyTorch model instance
     dummy_input,                 # Input to the model
