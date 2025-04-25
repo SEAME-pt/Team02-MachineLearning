@@ -8,31 +8,16 @@ from src.augmentation import LaneDetectionAugmentation
 from torch.utils.data import Dataset
 
 def get_binary_labels(height, width, pts, thickness=5):
-    """ Get the binary labels. this function is similar to
-    @get_binary_image, but it returns labels in 2 x H x W format
-    this label will be used in the CrossEntropyLoss function.
-
-    Args:
-        img: numpy array
-        pts: set of lanes, each lane is a set of points
-
-    Output:
-
-    """
     bin_img = np.zeros(shape=[height, width], dtype=np.uint8)
     for lane in pts:
         cv2.polylines(
             bin_img,
-            np.int32(
-                [lane]),
+            np.int32([lane]),
             isClosed=False,
-            color=255,
+            color=1,
             thickness=thickness)
 
-    bin_labels = np.zeros_like(bin_img, dtype=bool)
-    bin_labels[bin_img != 0] = True
-    bin_labels = np.stack([~bin_labels, bin_labels]).astype(np.uint8)
-    return bin_labels
+    return bin_img.astype(np.float32)[None, ...]
 
 
 def get_instance_labels(height, width, pts, thickness=5, max_lanes=4):

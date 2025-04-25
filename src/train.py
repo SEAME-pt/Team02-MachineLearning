@@ -19,7 +19,7 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
         epochs: Number of epochs to train for
     """
 
-    criterion_ce = nn.CrossEntropyLoss()
+    criterion_be = nn.BCEWithLogitsLoss()
     criterion_disc = DiscriminativeLoss(delta_var=0.5,
                                         delta_dist=1.5,
                                         norm=2,
@@ -35,7 +35,6 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
                         bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}')
         
         for i, (inputs, bin_labels, ins_labels, n_lanes) in enumerate(train_bar):
-            # Move data to device
             inputs = inputs.to(device)
             bin_labels = bin_labels.to(device)
             ins_labels = ins_labels.to(device)
@@ -43,13 +42,10 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
             
             bin_preds, ins_preds = model(inputs)
 
-            _, bin_labels_ce = bin_labels.max(1)
-            ce_loss = criterion_ce(
-                bin_preds.permute(0, 2, 3, 1).contiguous().view(-1, 2),
-                bin_labels_ce.view(-1))
+            be_loss = criterion_be(bin_preds, bin_labels)
 
             disc_loss = criterion_disc(ins_preds, ins_labels, n_lanes)
-            loss = ce_loss + disc_loss
+            loss = be_loss + disc_loss
 
             # Backward pass and optimize
             loss.backward()
@@ -60,6 +56,6 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
             train_bar.set_postfix(loss=f'{loss.item():.4f}')
         
         # Save model
-        torch.save(model.state_dict(), f'Models/lane/lane_mobilenetv2_ins2_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'Models/lane/lane_mobilenetv2_ins1_epoch_{epoch+1}.pth')
     
     return model

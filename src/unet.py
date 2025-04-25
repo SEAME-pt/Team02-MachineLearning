@@ -5,7 +5,7 @@ import torchvision.models as models
 from torchvision.models import MobileNet_V2_Weights
 
 class MobileNetV2UNet(nn.Module):
-    def __init__(self, binary_channels=2, embed_dim=4):
+    def __init__(self, binary_channels=1, embed_dim=4):
         super(MobileNetV2UNet, self).__init__()
         
         # Load pre-trained MobileNetV2 backbone
