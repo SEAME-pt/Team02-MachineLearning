@@ -10,12 +10,14 @@ class UNet(nn.Module):
         self.inc = inconv(3, base_filters)
         self.down1 = down(base_filters, base_filters*2)
         self.down2 = down(base_filters*2, base_filters*4)
-        self.down3 = down(base_filters*4, base_filters*4)
+        self.down3 = down(base_filters*4, base_filters*8)
+        self.down4 = down(base_filters*8, base_filters*8)
 
-        self.up1 = up(base_filters*8, base_filters*2)
-        self.up2 = up(base_filters*4, base_filters)
-        self.up3 = up(base_filters*2, base_filters)
-        self.sem_out = outconv(base_filters, 1)
+        self.up1 = up(base_filters*16, base_filters*4)
+        self.up2 = up(base_filters*8, base_filters*2)
+        self.up3 = up(base_filters*4, base_filters)
+        self.up4 = up(base_filters*2, base_filters)
+        self.sem_out = outconv(base_filters, 2)
         self.ins_out = outconv(base_filters, 4)
 
     def forward(self, x):
@@ -23,10 +25,12 @@ class UNet(nn.Module):
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
+        x5 = self.down4(x4)
 
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
         sem = self.sem_out(x)
         ins = self.ins_out(x)
         return sem, ins
@@ -157,7 +161,7 @@ class up(nn.Module):
     def __init__(self, in_ch, out_ch):
         super(up, self).__init__()
         self.up = nn.Upsample(scale_factor=2, mode='bilinear')
-        self.conv = double_conv(in_ch + out_ch, out_ch)
+        self.conv = double_conv(in_ch, out_ch)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)

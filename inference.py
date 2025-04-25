@@ -25,7 +25,7 @@ input_size = (384, 192)
 
 # Load the trained model
 model = MobileNetV2UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins_ce_epoch_10.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins_ce_epoch_12.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function

@@ -97,7 +97,7 @@ def main():
     )
     
     # Initialize model
-    model = MobileNetV2UNet().to(device)
+    model = UNet().to(device)
     optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
     # Train model
