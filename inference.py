@@ -25,7 +25,7 @@ input_size = (384, 192)
 
 # Load the trained model
 model = MobileNetV2UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins1_epoch_9.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins1_epoch_12.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -236,7 +236,7 @@ def overlay_predictions(image, prediction, threshold=0.1):
     return overlay
 
 # Open video
-cap = cv2.VideoCapture("assets/seame_data.mp4")
+cap = cv2.VideoCapture("assets/road3.mp4")
 
 while True:
     ret, frame = cap.read()
