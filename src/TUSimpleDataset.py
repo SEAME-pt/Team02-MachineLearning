@@ -8,63 +8,85 @@ from src.augmentation import LaneDetectionAugmentation
 from torch.utils.data import Dataset
 
 def get_binary_labels(height, width, pts, thickness=5):
+    """ Get the binary labels. this function is similar to
+    @get_binary_image, but it returns labels in 2 x H x W format
+    this label will be used in the CrossEntropyLoss function.
+
+    Args:
+        img: numpy array
+        pts: set of lanes, each lane is a set of points
+
+    Output:
+
+    """
     bin_img = np.zeros(shape=[height, width], dtype=np.uint8)
     for lane in pts:
         cv2.polylines(
             bin_img,
-            np.int32([lane]),
+            np.int32(
+                [lane]),
+            isClosed=False,
+            color=255,
+            thickness=thickness)
+
+    bin_labels = np.zeros_like(bin_img, dtype=bool)
+    bin_labels[bin_img != 0] = True
+    bin_labels = np.stack([~bin_labels, bin_labels]).astype(np.uint8)
+    return bin_labels
+
+
+def get_instance_labels(height, width, pts, thickness=5, max_lanes=4):
+    """  Get the instance segmentation labels.
+    this function is similar to @get_instance_image,
+    but it returns label in L x H x W format
+
+    Args:
+            image
+            pts
+
+    Output:
+            max Lanes x H x W, number of actual lanes
+    """
+    if len(pts) > max_lanes:
+        #logger.warning('More than 5 lanes: %s', len(pts))
+        pts = pts[:max_lanes]
+
+    ins_labels = np.zeros(shape=[0, height, width], dtype=np.uint8)
+
+    n_lanes = 0
+    for lane in pts:
+        ins_img = np.zeros(shape=[height, width], dtype=np.uint8)
+        cv2.polylines(
+            ins_img,
+            np.int32(
+                [lane]),
             isClosed=False,
             color=1,
             thickness=thickness)
 
-    return bin_img.astype(np.float32)[None, ...]
+        # there are some cases where the line could not be draw, such as one
+        # point, we need to remove these cases
+        # also, if there is overlapping among lanes, only the latest lane is
+        # labeled
+        if ins_img.sum() != 0:
+            # comment this line because it will zero out previous lane data,
+            # this leads to NaN error in computing the discriminative loss
 
-def get_instance_labels(height, width, pts, thickness=5, max_lanes=3):
-    """
-    Generate instance segmentation labels with a unique ID for each lane
-    
-    Args:
-        height: Image height
-        width: Image width
-        pts: List of lane points
-        thickness: Thickness of lane lines
-        max_lanes: Maximum number of lanes to include (default 2)
-                   Note: output will have max_lanes+1 classes including background (0)
-    
-    Returns:
-        Instance segmentation mask with each lane having a unique ID
-    """
-    instance_img = np.zeros(shape=[height, width], dtype=np.uint8)
-    
-    # Sort lanes by their median x-position (left to right)
-    if pts:
-        # Calculate median x-coordinate for each lane
-        lane_positions = []
-        for lane in pts:
-            x_coords = [point[0] for point in lane]
-            median_x = np.median(x_coords)
-            lane_positions.append((median_x, lane))
-        
-        # Sort lanes by x-position
-        sorted_lanes = [lane for _, lane in sorted(lane_positions, key=lambda x: x[0])]
-        
-        # Limit number of lanes to max_lanes
-        sorted_lanes = sorted_lanes[:max_lanes]
-    else:
-        sorted_lanes = pts
-    
-    # Draw each lane with a unique ID (starting from 1)
-    for i, lane in enumerate(sorted_lanes):
-        # Use i+1 as the lane ID (0 is background)
-        lane_id = i + 1
-        cv2.polylines(
-            instance_img,
-            np.int32([lane]),
-            isClosed=False,
-            color=lane_id,
-            thickness=thickness)
-    
-    return instance_img.astype(np.int64)
+            # ins_labels[:, ins_img != 0] = 0
+            ins_labels = np.concatenate([ins_labels, ins_img[np.newaxis]])
+            n_lanes += 1
+
+    if n_lanes < max_lanes:
+        n_pad_lanes = max_lanes - n_lanes
+        pad_labels = np.zeros(
+            shape=[
+                n_pad_lanes,
+                height,
+                width],
+            dtype=np.uint8)
+        ins_labels = np.concatenate([ins_labels, pad_labels])
+
+    return ins_labels, n_lanes
 
 def get_image_transform():
     normalizer = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -152,12 +174,13 @@ class TuSimpleDataset(Dataset):
                 for (x, y) in lane] for lane in pts]
 
         bin_labels = get_binary_labels(self.height, self.width, pts, thickness=self.thickness)
-        instance_labels = get_instance_labels(self.height, self.width, pts, thickness=self.thickness)
+        instance_labels, n_lanes = get_instance_labels(self.height, self.width, pts, thickness=self.thickness, max_lanes=4)
 
-        if self.is_train:
-            # You'll need to modify your augmentation to handle instance labels too
-            image, bin_labels, instance_labels = self.augmentation(image, bin_labels, instance_labels)
-            return image, bin_labels, instance_labels
-        else:
-            image = self.transform(image)
-            return image, bin_labels, instance_labels
+        # if self.is_train:
+        #     image, bin_labels, instance_labels = self.augmentation(image, bin_labels, instance_labels)
+        #     return image, bin_labels, instance_labels, n_lanes
+        # else:
+        image = self.transform(image)
+        bin_labels = torch.Tensor(bin_labels)
+        instance_labels = torch.Tensor(instance_labels)
+        return image, bin_labels, instance_labels, n_lanes

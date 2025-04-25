@@ -7,3 +7,4 @@ numpy
 opencv-python
 albumentations
 onnx
+scikit-learn

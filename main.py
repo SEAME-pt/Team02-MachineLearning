@@ -5,6 +5,7 @@ import torch.optim as optim
 from src.CombinedDataset import CombinedLaneDataset
 from src.train import train_model
 from src.unet import UNet, MobileNetV2UNet
+from src.TUSimpleDataset import TuSimpleDataset
 import os
 import numpy as np
 
@@ -97,11 +98,10 @@ def main():
     
     # Initialize model
     model = MobileNetV2UNet().to(device)
-    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
     # Train model
-    model = train_model(model, train_loader, criterion, optimizer, device, epochs=20)
+    model = train_model(model, train_loader, optimizer, device, epochs=20)
 
 if __name__ == '__main__':
     main()

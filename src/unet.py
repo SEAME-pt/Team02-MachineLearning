@@ -5,7 +5,7 @@ import torchvision.models as models
 from torchvision.models import MobileNet_V2_Weights
 
 class MobileNetV2UNet(nn.Module):
-    def __init__(self, binary_channels=1, instance_channels=4):
+    def __init__(self, binary_channels=2, embed_dim=4):
         super(MobileNetV2UNet, self).__init__()
         
         # Load pre-trained MobileNetV2 backbone
@@ -28,7 +28,7 @@ class MobileNetV2UNet(nn.Module):
         self.binary_outc = outconv(16, binary_channels)
         
         # Instance segmentation output (new)
-        self.instance_outc = outconv(16, instance_channels)
+        self.instance_outc = outconv(16, embed_dim)
         
         # Final upsampling for both outputs
         self.final_upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)

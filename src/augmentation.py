@@ -67,48 +67,53 @@ class LaneDetectionAugmentation:
             ToTensorV2()
         ], additional_targets={'mask1': 'mask'})
         
-    def __call__(self, image, binary_mask, instance_mask=None):
+    def __call__(self, image, binary_mask, instance_mask):
         """
-        Apply transformations to image and masks
+        Apply augmentation to image and masks
         
         Args:
-            image: Input image (H, W, C) as numpy array
-            binary_mask: Binary mask (H, W) or (1, H, W) as numpy array
-            instance_mask: Instance segmentation mask (H, W) as numpy array
-                
+            image: RGB image
+            binary_mask: Binary mask (H, W) or (1, H, W)
+            instance_mask: Instance segmentation mask (max_lanes, H, W)
+            
         Returns:
-            transformed_image: Transformed image as tensor
-            transformed_binary_mask: Transformed binary mask as tensor
-            transformed_instance_mask: Transformed instance mask as tensor
+            Augmented image and masks
         """
-        # Remove channel dimension from masks if present
-        if len(binary_mask.shape) == 3 and binary_mask.shape[0] == 1:
-            binary_mask = binary_mask.squeeze(0)
+        # Check dimensions and handle appropriately
+        if binary_mask.ndim == 3:  # If (C, H, W)
+            binary_mask_transposed = binary_mask.transpose(1, 2, 0)
+        else:  # If (H, W)
+            binary_mask_transposed = binary_mask
         
-        # Apply transformations to both masks
-        if instance_mask is not None:
-            transformed = self.transform(
-                image=image, 
-                mask=binary_mask,
-                mask1=instance_mask
-            )
-            transformed_image = transformed['image']
-            transformed_binary_mask = transformed['mask']
-            transformed_instance_mask = transformed['mask1']
-            
-            # Ensure binary mask has channel dimension [1, H, W]
-            if len(transformed_binary_mask.shape) == 2:
-                transformed_binary_mask = transformed_binary_mask.unsqueeze(0)
-                
-            return transformed_image, transformed_binary_mask, transformed_instance_mask
+        # For instance mask, transpose if needed
+        if instance_mask.ndim == 3:  # (max_lanes, H, W)
+            instance_mask_transposed = instance_mask.transpose(1, 2, 0)
         else:
-            # Fallback to original behavior when no instance mask is provided
-            transformed = self.transform(image=image, mask=binary_mask)
-            transformed_image = transformed['image']
-            transformed_binary_mask = transformed['mask']
-            
-            # Ensure mask has channel dimension [1, H, W]
-            if len(transformed_binary_mask.shape) == 2:
-                transformed_binary_mask = transformed_binary_mask.unsqueeze(0)
-                
-            return transformed_image, transformed_binary_mask
+            instance_mask_transposed = instance_mask
+        
+        transformed = self.transform(
+            image=image,
+            mask=binary_mask_transposed,
+            mask1=instance_mask_transposed
+        )
+        
+        # Get the augmented data
+        aug_image = transformed['image']
+        aug_binary_mask = transformed['mask']
+        aug_instance_mask = transformed['mask1']
+        
+        # Handle masks based on their original dimensions
+        if binary_mask.ndim == 3:
+            # For PyTorch tensors, use permute instead of transpose for 3+ dimensions
+            if isinstance(aug_binary_mask, torch.Tensor):
+                aug_binary_mask = aug_binary_mask.permute(2, 0, 1)
+            else:
+                aug_binary_mask = aug_binary_mask.transpose(2, 0, 1)
+        
+        if instance_mask.ndim == 3:
+            if isinstance(aug_instance_mask, torch.Tensor):
+                aug_instance_mask = aug_instance_mask.permute(2, 0, 1)
+            else:
+                aug_instance_mask = aug_instance_mask.transpose(2, 0, 1)
+        
+        return aug_image, aug_binary_mask, aug_instance_mask
