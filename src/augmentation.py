@@ -66,32 +66,6 @@ class LaneDetectionAugmentation:
             A.Normalize(mean=self.mean, std=self.std),
             ToTensorV2()
         ], additional_targets={'mask1': 'mask'})
-
-    def __call__(self, image, mask):
-        """
-        Apply transformations to image and mask
-        
-        Args:
-            image: Input image (H, W, C) as numpy array
-            mask: Binary mask (H, W) or (1, H, W) as numpy array
-                
-        Returns:
-            transformed_image: Transformed image as tensor
-            transformed_mask: Transformed mask as tensor
-        """
-        # If mask has a channel dimension, remove it for albumentations
-        if len(mask.shape) == 3 and mask.shape[0] == 1:
-            mask = mask.squeeze(0)  # Remove channel dimension
-        
-        transformed = self.transform(image=image, mask=mask)
-        transformed_image = transformed['image']
-        transformed_mask = transformed['mask']
-        
-        # Ensure mask has channel dimension [1, H, W]
-        if len(transformed_mask.shape) == 2:
-            transformed_mask = transformed_mask.unsqueeze(0)
-            
-        return transformed_image, transformed_mask
         
     def __call__(self, image, binary_mask, instance_mask):
         """
@@ -128,8 +102,8 @@ class LaneDetectionAugmentation:
         aug_instance_mask = transformed['mask1']
         
         # Handle masks based on their original dimensions
-        if len(transformed_mask.shape) == 2:
-            transformed_mask = transformed_mask.unsqueeze(0)
+        if len(aug_binary_mask.shape) == 2:
+            aug_binary_mask = aug_binary_mask.unsqueeze(0)
         
         if instance_mask.ndim == 3:
             if isinstance(aug_instance_mask, torch.Tensor):

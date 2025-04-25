@@ -56,6 +56,6 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
             train_bar.set_postfix(loss=f'{loss.item():.4f}')
         
         # Save model
-        torch.save(model.state_dict(), f'Models/lane/lane_mobilenetv2_ins1_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'Models/lane/lane_mobilenetv2_ins_bin_epoch_{epoch+1}.pth')
     
     return model

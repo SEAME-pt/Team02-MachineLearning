@@ -25,7 +25,7 @@ input_size = (384, 192)
 
 # Load the trained model
 model = MobileNetV2UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins1_epoch_12.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_mobilenetv244_epoch_3.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -219,7 +219,7 @@ def get_lane_mask(num_clusters, labels, binary_seg_ret, lane_coordinate):
 
     return mask_image
 
-def overlay_predictions(image, prediction, threshold=0.1):
+def overlay_predictions(image, prediction, threshold=0.3):
     # Convert prediction to binary mask
     prediction = prediction.squeeze().cpu().detach().numpy()
     lane_mask = (prediction > threshold).astype(np.uint8) * 255

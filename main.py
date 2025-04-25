@@ -101,7 +101,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
     # Train model
-    model = train_model(model, train_loader, optimizer, device, epochs=20)
+    model = train_model(model, train_loader, optimizer, device, epochs=40)
 
 if __name__ == '__main__':
     main()
