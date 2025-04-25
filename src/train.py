@@ -19,7 +19,7 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
         epochs: Number of epochs to train for
     """
 
-    criterion_be = nn.BCEWithLogitsLoss()
+    criterion_ce = nn.CrossEntropyLoss()
     criterion_disc = DiscriminativeLoss(delta_var=0.5,
                                         delta_dist=1.5,
                                         norm=2,
@@ -42,7 +42,9 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
             
             bin_preds, ins_preds = model(inputs)
 
-            be_loss = criterion_be(bin_preds, bin_labels)
+            _, bin_labels_ce = bin_labels.max(1)
+            be_loss = criterion_ce(
+            bin_preds.permute(0, 2, 3, 1).contiguous().view(-1, 2), bin_labels_ce.view(-1))
 
             disc_loss = criterion_disc(ins_preds, ins_labels, n_lanes)
             loss = be_loss + disc_loss
@@ -56,6 +58,6 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
             train_bar.set_postfix(loss=f'{loss.item():.4f}')
         
         # Save model
-        torch.save(model.state_dict(), f'Models/lane/lane_mobilenetv2_ins_bin_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'Models/lane/lane_mobilenetv2_ins_ce_epoch_{epoch+1}.pth')
     
     return model

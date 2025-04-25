@@ -4,8 +4,62 @@ import torch.nn.functional as F
 import torchvision.models as models
 from torchvision.models import MobileNet_V2_Weights
 
+class UNet(nn.Module):
+    def __init__(self, base_filters=64):
+        super(UNet, self).__init__()
+        self.inc = inconv(3, base_filters)
+        self.down1 = down(base_filters, base_filters*2)
+        self.down2 = down(base_filters*2, base_filters*4)
+        self.down3 = down(base_filters*4, base_filters*4)
+
+        self.up1 = up(base_filters*8, base_filters*2)
+        self.up2 = up(base_filters*4, base_filters)
+        self.up3 = up(base_filters*2, base_filters)
+        self.sem_out = outconv(base_filters, 1)
+        self.ins_out = outconv(base_filters, 4)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        sem = self.sem_out(x)
+        ins = self.ins_out(x)
+        return sem, ins
+
+class LightUNet(nn.Module):
+    def __init__(self, base_filters=32):
+        super(LightUNet, self).__init__()
+        self.inc = inconv(3, base_filters)
+        self.down1 = down(base_filters, base_filters*2)
+        self.down2 = down(base_filters*2, base_filters*4)
+        self.down3 = down(base_filters*4, base_filters*4)
+        
+        self.up1 = up(base_filters*8, base_filters*2)
+        self.up2 = up(base_filters*4, base_filters)
+        self.up3 = up(base_filters*2, base_filters)
+        self.sem_out = outconv(base_filters, 1)
+        self.ins_out = outconv(base_filters, 4)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        sem = self.sem_out(x)
+        ins = self.sem_out(x)
+        return sem, ins
+    
 class MobileNetV2UNet(nn.Module):
-    def __init__(self, binary_channels=1, embed_dim=4):
+    def __init__(self, binary_channels=2, embed_dim=4):
         super(MobileNetV2UNet, self).__init__()
         
         # Load pre-trained MobileNetV2 backbone
@@ -57,7 +111,7 @@ class MobileNetV2UNet(nn.Module):
         
         # Return both outputs
         return binary_out, instance_out
-
+    
 class double_conv(nn.Module):
     '''(conv => BN => ReLU) * 2'''
     def __init__(self, in_ch, out_ch):
@@ -127,54 +181,3 @@ class outconv(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         return x
-
-
-class UNet(nn.Module):
-    def __init__(self, base_filters=64):
-        super(UNet, self).__init__()
-        self.inc = inconv(3, base_filters)
-        self.down1 = down(base_filters, base_filters*2)
-        self.down2 = down(base_filters*2, base_filters*4)
-        self.down3 = down(base_filters*4, base_filters*4)
-
-        self.up1 = up(base_filters*8, base_filters*2)
-        self.up2 = up(base_filters*4, base_filters)
-        self.up3 = up(base_filters*2, base_filters)
-        self.sem_out = outconv(base_filters, 1)
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        sem = self.sem_out(x)
-        return sem
-
-class LightUNet(nn.Module):
-    def __init__(self, base_filters=32):
-        super(LightUNet, self).__init__()
-        self.inc = inconv(3, base_filters)
-        self.down1 = down(base_filters, base_filters*2)
-        self.down2 = down(base_filters*2, base_filters*4)
-        self.down3 = down(base_filters*4, base_filters*4)
-        
-        self.up1 = up(base_filters*8, base_filters*2)
-        self.up2 = up(base_filters*4, base_filters)
-        self.up3 = up(base_filters*2, base_filters)
-        self.sem_out = outconv(base_filters, 1)
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        sem = self.sem_out(x)
-        return sem

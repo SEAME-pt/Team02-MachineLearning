@@ -25,7 +25,7 @@ input_size = (384, 192)
 
 # Load the trained model
 model = MobileNetV2UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_mobilenetv244_epoch_3.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins_bin_epoch_29.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -252,36 +252,36 @@ while True:
     with torch.no_grad():
         bin_preds, ins_preds = model(img_tensor)
         bin_preds = torch.sigmoid(bin_preds)
-
-    result_frame = overlay_predictions(frame, bin_preds)
-    cv2.imshow("Binary Lane Mask", result_frame)
     
-    # bin_pred = bin_preds.data.cpu().numpy()  
-    # ins_img = ins_preds.data.cpu().numpy()
+    bin_pred = bin_preds.data.cpu().numpy()  
+    ins_img = ins_preds.data.cpu().numpy()
     
-    # lane_prob = bin_pred[0, 0]
-    # bin_img_raw = (lane_prob > 0.1).astype(np.uint8)
+    lane_prob = bin_pred[0, 0]
+    bin_img_raw = (lane_prob > 0.2).astype(np.uint8)
 
-    # # Apply post-processing to clean up the mask
-    # bin_img = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
+    # Apply post-processing to clean up the mask
+    bin_img = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
 
-    # bin_viz = np.zeros_like(frame)
-    # bin_resized = cv2.resize(bin_img * 255, (frame.shape[1], frame.shape[0]), 
-    #                        interpolation=cv2.INTER_NEAREST)
-    # bin_viz[:,:,1] = bin_resized  # Show in green channel
-    # cv2.imshow("Binary Lane Mask", bin_viz)
+    overlay_img = frame.copy()
+    bin_viz = np.zeros_like(frame)
+    bin_resized = cv2.resize(bin_img * 255, (frame.shape[1], frame.shape[0]), 
+                           interpolation=cv2.INTER_NEAREST)
+    bin_viz[:,:,1] = bin_resized 
+    overlay_img = cv2.addWeighted(overlay_img, 0.7, bin_viz, 0.3, 0)
+    cv2.imshow("Binary Lane Mask", overlay_img)
 
-    # lane_embedding_feats, lane_coordinate = get_lane_area(
-    #                 bin_img, ins_img)
+
+    lane_embedding_feats, lane_coordinate = get_lane_area(
+                    bin_img, ins_img)
     
-    # if lane_embedding_feats.size > 0:
-    #     num_clusters, labels, cluster_centers = cluster(lane_embedding_feats, bandwidth=1.5)
-    #     mask_img = get_lane_mask(num_clusters, labels, bin_img, lane_coordinate)
-    #     mask_img = cv2.resize(mask_img, (frame.shape[1], frame.shape[0]), 
-    #                         interpolation=cv2.INTER_NEAREST)
-    #     mask_img = mask_img[:, :, (2, 1, 0)]
-    #     overlay_img = cv2.addWeighted(frame, 1.0, mask_img, 1.0, 0)
-    #     cv2.imshow("Lane Detection", overlay_img)
+    if lane_embedding_feats.size > 0:
+        num_clusters, labels, cluster_centers = cluster(lane_embedding_feats, bandwidth=1.5)
+        mask_img = get_lane_mask(num_clusters, labels, bin_img, lane_coordinate)
+        mask_img = cv2.resize(mask_img, (frame.shape[1], frame.shape[0]), 
+                            interpolation=cv2.INTER_NEAREST)
+        mask_img = mask_img[:, :, (2, 1, 0)]
+        overlay_img = cv2.addWeighted(frame, 1.0, mask_img, 1.0, 0)
+        cv2.imshow("Lane Detection", overlay_img)
     
     # Break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
