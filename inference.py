@@ -25,7 +25,7 @@ input_size = (384, 192)
 
 # Load the trained model
 model = MobileNetV2UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins_bin_epoch_29.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins_ce_epoch_10.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -115,52 +115,27 @@ def cluster(embeddings, bandwidth=1.5):
 
         return num_clusters, labels, cluster_centers
 
-
 def get_lane_area(binary_seg_ret, instance_seg_ret):
     """ Get possible lane area from the binary segmentation results
 
     Args:
-        binary_seg_ret: Binary segmentation mask
-        instance_seg_ret: Instance embedding features
+        binary_seg_ret:
+        instance_seg_ret:
 
     Returns:
-        lane_embedding_feats: Feature embeddings for lane pixels
-        lane_coordinate: Coordinates of lane pixels
+
     """
-    # FIX: Check that binary mask is correctly formatted as uint8
-    if binary_seg_ret.dtype != np.uint8:
-        binary_seg_ret = binary_seg_ret.astype(np.uint8)
-    
-    # FIX: Find where mask is non-zero instead of exactly 1
-    idx = np.where(binary_seg_ret > 0)
-    
-    # Debug print to see how many pixels were found
-    # print(f"Found {len(idx[0])} lane pixels in binary mask")
-    
-    # Safety check - if no pixels found, return empty arrays
-    if len(idx[0]) == 0:
-        return np.array([], dtype=np.float32), np.array([], dtype=np.int64)
-    
-    # Get instance embedding features for each lane pixel
+    idx = np.where(binary_seg_ret == 1)
+
     lane_embedding_feats = []
     lane_coordinate = []
-    
-    # Get correct instance embedding shape
-    embed_dim = instance_seg_ret.shape[0] if instance_seg_ret.ndim == 3 else instance_seg_ret.shape[1]
-    
     for i in range(len(idx[0])):
-        # Check bounds to avoid index errors
-        if idx[0][i] < instance_seg_ret.shape[1 if instance_seg_ret.ndim == 3 else 2] and \
-           idx[1][i] < instance_seg_ret.shape[2 if instance_seg_ret.ndim == 3 else 3]:
-            if instance_seg_ret.ndim == 3:  # [C, H, W]
-                lane_embedding_feats.append(instance_seg_ret[:, idx[0][i], idx[1][i]])
-            else:  # [B, C, H, W]
-                lane_embedding_feats.append(instance_seg_ret[0, :, idx[0][i], idx[1][i]])
-            
-            lane_coordinate.append([idx[0][i], idx[1][i]])
+        lane_embedding_feats.append(instance_seg_ret[:, idx[0][i], idx[1][i]])
+        lane_coordinate.append([idx[0][i], idx[1][i]])
 
-    # Convert to numpy arrays with proper dtypes
-    return np.array(lane_embedding_feats, np.float32), np.array(lane_coordinate, np.int64)
+    return np.array(
+        lane_embedding_feats, np.float32), np.array(
+        lane_coordinate, np.int64)
 
 
 def get_lane_mask(num_clusters, labels, binary_seg_ret, lane_coordinate):
@@ -219,22 +194,6 @@ def get_lane_mask(num_clusters, labels, binary_seg_ret, lane_coordinate):
 
     return mask_image
 
-def overlay_predictions(image, prediction, threshold=0.3):
-    # Convert prediction to binary mask
-    prediction = prediction.squeeze().cpu().detach().numpy()
-    lane_mask = (prediction > threshold).astype(np.uint8) * 255
-    
-    # Resize mask to match the original image size
-    lane_mask = cv2.resize(lane_mask, (image.shape[1], image.shape[0]))
-    
-    # Create a colored overlay
-    colored_mask = np.zeros_like(image)
-    colored_mask[lane_mask > 0] = [0, 255, 0]  # Green for lane markings
-    
-    # Apply the overlay with transparency
-    overlay = cv2.addWeighted(image, 0.7, colored_mask, 0.3, 0)
-    return overlay
-
 # Open video
 cap = cv2.VideoCapture("assets/road3.mp4")
 
@@ -251,37 +210,41 @@ while True:
     # Run inference
     with torch.no_grad():
         bin_preds, ins_preds = model(img_tensor)
-        bin_preds = torch.sigmoid(bin_preds)
+        bin_preds = F.softmax(bin_preds, dim=1)
     
-    bin_pred = bin_preds.data.cpu().numpy()  
-    ins_img = ins_preds.data.cpu().numpy()
-    
-    lane_prob = bin_pred[0, 0]
-    bin_img_raw = (lane_prob > 0.2).astype(np.uint8)
+        bin_pred = bin_preds[0].data.cpu().numpy()  
+        ins_img = ins_preds[0].data.cpu().numpy()
+        bin_img = bin_pred.argmax(0)
+        bin_img = postprocess(bin_img)
 
-    # Apply post-processing to clean up the mask
-    bin_img = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
+        lane_embedding_feats, lane_coordinate = get_lane_area(
+                        bin_img, ins_img)
+        
+        if lane_embedding_feats.size > 0:
+            num_clusters, labels, cluster_centers = cluster(lane_embedding_feats, bandwidth=1.5)
+            mask_img = get_lane_mask(num_clusters, labels, bin_img, lane_coordinate)
+            mask_img = cv2.resize(mask_img, (frame.shape[1], frame.shape[0]), 
+                                interpolation=cv2.INTER_NEAREST)
+            mask_img = mask_img[:, :, (2, 1, 0)]
+        else:
+            mask_img = np.zeros((bin_img.shape[0], bin_img.shape[1], 3), np.uint8)
+            mask_img = cv2.resize(mask_img, (frame.shape[1], frame.shape[0]), 
+                                interpolation=cv2.INTER_NEAREST)
 
-    overlay_img = frame.copy()
-    bin_viz = np.zeros_like(frame)
-    bin_resized = cv2.resize(bin_img * 255, (frame.shape[1], frame.shape[0]), 
-                           interpolation=cv2.INTER_NEAREST)
-    bin_viz[:,:,1] = bin_resized 
-    overlay_img = cv2.addWeighted(overlay_img, 0.7, bin_viz, 0.3, 0)
-    cv2.imshow("Binary Lane Mask", overlay_img)
-
-
-    lane_embedding_feats, lane_coordinate = get_lane_area(
-                    bin_img, ins_img)
-    
-    if lane_embedding_feats.size > 0:
-        num_clusters, labels, cluster_centers = cluster(lane_embedding_feats, bandwidth=1.5)
-        mask_img = get_lane_mask(num_clusters, labels, bin_img, lane_coordinate)
-        mask_img = cv2.resize(mask_img, (frame.shape[1], frame.shape[0]), 
-                            interpolation=cv2.INTER_NEAREST)
-        mask_img = mask_img[:, :, (2, 1, 0)]
         overlay_img = cv2.addWeighted(frame, 1.0, mask_img, 1.0, 0)
         cv2.imshow("Lane Detection", overlay_img)
+
+        # lane_prob = bin_pred[0, 1]
+        # bin_img_raw = (lane_prob > 0.6).astype(np.uint8)
+
+        # # Apply post-processing to clean up the mask
+        # res = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
+
+        # bin_viz = np.zeros_like(frame)
+        # bin_resized = cv2.resize(res * 255, (frame.shape[1], frame.shape[0]), 
+        #                     interpolation=cv2.INTER_NEAREST)
+        # bin_viz[:,:,1] = bin_resized  # Show in green channel
+        # cv2.imshow("Binary Lane Mask", bin_viz)
     
     # Break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
