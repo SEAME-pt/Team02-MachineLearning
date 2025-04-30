@@ -24,8 +24,8 @@ else:
 input_size = (384, 192)
 
 # Load the trained model
-model = MobileNetV2UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_mobilenetv2_ins_ce_epoch_12.pth', map_location=device))
+model = UNet().to(device)
+model.load_state_dict(torch.load('Models/lane/lane_unet2_ins_ce_epoch_2.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -102,7 +102,7 @@ def cluster(embeddings, bandwidth=1.5):
             cluster_centers: centroids
 
         """
-        ms = MeanShift(bandwidth=bandwidth)
+        ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)
         try:
             ms.fit(embeddings)
         except ValueError as err:
@@ -234,17 +234,19 @@ while True:
         overlay_img = cv2.addWeighted(frame, 1.0, mask_img, 1.0, 0)
         cv2.imshow("Lane Detection", overlay_img)
 
-        # lane_prob = bin_pred[0, 1]
-        # bin_img_raw = (lane_prob > 0.6).astype(np.uint8)
+        lane_prob = bin_pred[1]
+        bin_img_raw = (lane_prob > 0.2).astype(np.uint8)
 
-        # # Apply post-processing to clean up the mask
-        # res = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
+        # Apply post-processing to clean up the mask
+        res = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
 
-        # bin_viz = np.zeros_like(frame)
-        # bin_resized = cv2.resize(res * 255, (frame.shape[1], frame.shape[0]), 
-        #                     interpolation=cv2.INTER_NEAREST)
-        # bin_viz[:,:,1] = bin_resized  # Show in green channel
-        # cv2.imshow("Binary Lane Mask", bin_viz)
+        bin_viz = np.zeros_like(frame)
+        print(frame[0])
+        bin_resized = cv2.resize(res * 255, (frame.shape[1], frame.shape[0]), 
+                            interpolation=cv2.INTER_NEAREST)
+        bin_viz[:,:,1] = bin_resized  # Show in green channel
+        overlay_img = cv2.addWeighted(frame, 1.0, bin_viz, 1.0, 0)
+        cv2.imshow("Binary Lane Mask", overlay_img)
     
     # Break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):

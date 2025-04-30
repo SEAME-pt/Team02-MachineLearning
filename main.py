@@ -32,7 +32,7 @@ def main():
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True,
-        'thickness': 3
+        'thickness': 5
     }
 
     carla_config = {
@@ -91,14 +91,14 @@ def main():
     # Create dataloaders
     train_loader = DataLoader(
         train_dataset, 
-        batch_size=16, 
+        batch_size=8, 
         sampler=sampler,
         num_workers=os.cpu_count() // 2
     )
     
     # Initialize model
     model = UNet().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1.4e-4)
     
     # Train model
     model = train_model(model, train_loader, optimizer, device, epochs=40)
