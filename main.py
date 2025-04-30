@@ -24,10 +24,10 @@ def main():
 
     # Your dataset configs
     tusimple_config = {
-        'json_paths': ["/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0313.json",
-                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0531.json",
-                      "/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/label_data_0601.json"],
-        'img_dir': '/home/luis_t2/SEAME/LaneAnchor/assets/TUSimple/train_set/',
+        'json_paths': ["/home/luis_t2/SEAME/TUSimple/train_set/label_data_0313.json",
+                      "/home/luis_t2/SEAME/TUSimple/train_set/label_data_0531.json",
+                      "/home/luis_t2/SEAME/TUSimple/train_set/label_data_0601.json"],
+        'img_dir': '/home/luis_t2/SEAME/TUSimple/train_set/',
         'width': input_size[0],
         'height': input_size[1],
         'is_train': True,
