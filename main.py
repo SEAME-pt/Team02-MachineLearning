@@ -96,12 +96,12 @@ def main():
     )
     
     # Initialize model
-    model = MobileNetV2UNet().to(device)
+    model = UNet().to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
     # Train model
-    model = train_model(model, train_loader, criterion, optimizer, device, epochs=20)
+    model = train_model(model, train_loader, criterion, optimizer, device, epochs=30)
 
 if __name__ == '__main__':
     main()
