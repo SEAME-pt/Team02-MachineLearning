@@ -35,12 +35,11 @@ def main():
     }
 
     carla_config = {
-        'json_paths': ["/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/data/dataset/Town03_Opt/train_gt.json"],
-        'img_dir': '/home/luis_t2/carla/PythonAPI/Carla-Lane-Detection-Dataset-Generation/',
+        'img_dir': '/home/luis_t2/SEAME/Dataset/Carla/frames',
+        'mask_dir': '/home/luis_t2/SEAME/Dataset/Carla/masks',
         'width': input_size[0],
         'height': input_size[1],
-        'is_train': True,
-        'thickness': 3
+        'is_train': True
     }
     
     sea_config = {
@@ -90,7 +89,7 @@ def main():
     # Create dataloaders
     train_loader = DataLoader(
         train_dataset, 
-        batch_size=16, 
+        batch_size=8, 
         sampler=sampler,
         num_workers=os.cpu_count() // 2
     )
