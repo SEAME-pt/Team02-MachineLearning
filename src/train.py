@@ -29,6 +29,7 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
         # Training phase
         model.train()
         train_loss = 0.0
+        num_batches = 0
         
         train_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs} [Train]', 
                         leave=True, position=0, 
@@ -55,7 +56,12 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
             
             # Update progress
             train_loss += loss.item()
+            num_batches += 1
             train_bar.set_postfix(loss=f'{loss.item():.4f}')
+
+        avg_loss = train_loss / num_batches
+        print(f"\nEpoch {epoch+1}/{epochs} Summary:")
+        print(f"  Average Loss: {avg_loss:.4f}")
         
         # Save model
         torch.save(model.state_dict(), f'Models/lane/lane_unet3_ins_ce_epoch_{epoch+1}.pth')
