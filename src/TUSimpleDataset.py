@@ -35,7 +35,7 @@ def get_binary_labels(height, width, pts, thickness=5):
     bin_labels = np.stack([~bin_labels, bin_labels]).astype(np.uint8)
     return bin_labels
 
-def get_instance_labels(height, width, pts, thickness=5, max_lanes=4):
+def get_instance_labels(height, width, pts, thickness=5, max_lanes=5):
     """  Get the instance segmentation labels.
     this function is similar to @get_instance_image,
     but it returns label in L x H x W format
@@ -174,7 +174,7 @@ class TuSimpleDataset(Dataset):
                 for (x, y) in lane] for lane in pts]
 
         bin_labels = get_binary_labels(self.height, self.width, pts, thickness=self.thickness)
-        instance_labels, n_lanes = get_instance_labels(self.height, self.width, pts, thickness=self.thickness, max_lanes=4)
+        instance_labels, n_lanes = get_instance_labels(self.height, self.width, pts, thickness=self.thickness, max_lanes=5)
 
         # if self.is_train:
         #     image, bin_labels, instance_labels = self.augmentation(image, bin_labels, instance_labels)
