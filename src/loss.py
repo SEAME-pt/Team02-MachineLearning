@@ -13,8 +13,8 @@ class DiscriminativeLoss(_Loss):
 
     def __init__(self, delta_var=0.5, delta_dist=1.5,
                  norm=2, alpha=1.0, beta=1.0, gamma=0.001,
-                 usegpu=True, size_average=True):
-        super(DiscriminativeLoss, self).__init__(size_average)
+                 usegpu=True, reduction='mean'):
+        super(DiscriminativeLoss, self).__init__(reduction=reduction)
         self.delta_var = delta_var
         self.delta_dist = delta_dist
         self.norm = norm

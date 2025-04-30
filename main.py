@@ -21,7 +21,7 @@ def main():
         device = torch.device("cpu")
         print("Using CPU")
 
-    input_size = (384, 192)
+    input_size = (512, 256)
 
     # Your dataset configs
     tusimple_config = {
@@ -98,7 +98,7 @@ def main():
     
     # Initialize model
     model = UNet().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=1.4e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
     
     # Train model
     model = train_model(model, train_loader, optimizer, device, epochs=40)

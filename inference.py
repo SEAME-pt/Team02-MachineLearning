@@ -21,11 +21,11 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
-input_size = (384, 192)
+input_size = (512, 256)
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_unet2_ins_ce_epoch_2.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_unet2_ins_ce_epoch_6.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -235,7 +235,7 @@ while True:
         cv2.imshow("Lane Detection", overlay_img)
 
         lane_prob = bin_pred[1]
-        bin_img_raw = (lane_prob > 0.2).astype(np.uint8)
+        bin_img_raw = (lane_prob > 0.3).astype(np.uint8)
 
         # Apply post-processing to clean up the mask
         res = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
