@@ -1,7 +1,0 @@
-torch
-torchvision
-timm
-matplotlib
-pandas
-numpy
-opencv-python
