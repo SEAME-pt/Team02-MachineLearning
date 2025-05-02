@@ -25,7 +25,7 @@ input_size = (512, 256)
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_unet3_ins_ce_epoch_3.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_unet3_ins_ce_epoch_23.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
