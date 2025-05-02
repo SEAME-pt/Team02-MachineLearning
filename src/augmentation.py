@@ -57,8 +57,8 @@ class LaneDetectionAugmentation:
             
             # Light blur to simulate motion/focus issues
             A.OneOf([
-                A.MotionBlur(blur_limit=3),
-                A.GaussianBlur(blur_limit=3),
+                A.MotionBlur(blur_limit=(3, 3)),
+                A.GaussianBlur(blur_limit=(3, 3)),
                 A.GlassBlur(sigma=0.4, max_delta=2, iterations=1, p=0.2),  # Simulates reflections
             ], p=0.3),
             
