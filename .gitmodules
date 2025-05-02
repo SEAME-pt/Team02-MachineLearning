@@ -1,0 +1,6 @@
+[submodule "LaneDetection"]
+	path = LaneDetection
+	url = git@github.com:SEAME-pt/Team02-LaneDetection.git
+[submodule "ObjectDetection"]
+	path = ObjectDetection
+	url = git@github.com:SEAME-pt/Team02-ObjectDetection.git
