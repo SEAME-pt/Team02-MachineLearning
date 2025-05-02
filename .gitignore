@@ -46,6 +46,5 @@ _deps
 CMakeUserPresets.json
 src/assets/*
 src/__pycache__/*
-env/*
 Models/
 .env
