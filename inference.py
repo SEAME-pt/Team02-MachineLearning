@@ -21,7 +21,7 @@ else:
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_UNet1_epoch_2.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_UNet1_epoch_7.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function

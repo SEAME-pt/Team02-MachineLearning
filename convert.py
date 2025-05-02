@@ -20,12 +20,12 @@ else:
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/temp/lane_model2_epoch_9.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_UNet1_epoch_8.pth', map_location=device))
 model.eval()
 
-dummy_input = torch.randn(1, 3, 128, 256).to(device)  
+dummy_input = torch.randn(1, 3, 192, 384).to(device)  
 
-onnx_file_path = "Models/temp/lane_segmentation_model2_epoch9.onnx"
+onnx_file_path = "Models/onnx/lane_UNet1_epoch_8.onnx"
 torch.onnx.export(
     model,                       # PyTorch model instance
     dummy_input,                 # Input to the model
