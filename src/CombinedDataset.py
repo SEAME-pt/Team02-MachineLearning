@@ -40,11 +40,12 @@ class CombinedLaneDataset(Dataset):
         
         if sea_config:
             self.sea_dataset = SEAMEDataset(
+                json_paths=sea_config['json_paths'],
                 img_dir=sea_config['img_dir'],
-                mask_dir=sea_config['mask_dir'],
                 width=sea_config.get('width', 512),
                 height=sea_config.get('height', 256),
-                is_train=sea_config.get('is_train', True)
+                is_train=sea_config.get('is_train', True),
+                thickness=sea_config.get('thickness', 5)
             )
             
         if carla_config:

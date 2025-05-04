@@ -21,11 +21,11 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
-input_size = (512, 256)
+input_size = (256, 128)
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_unet3_ins_ce_epoch_23.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_unet5_ins_ce_epoch_100.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -49,7 +49,7 @@ def preprocess_image(image, target_size=(256, 128)):
     
     return img_tensor, img
 
-def postprocess(image, kernel_size=5, minarea_threshold=50):
+def postprocess(image, kernel_size=5, minarea_threshold=20):
         """Do the post processing here. First the image is converte to grayscale.
         Then a closing operation is applied to fill empty gaps among surrounding
         pixels. After that connected component are detected where small components
@@ -172,6 +172,32 @@ def get_lane_mask(num_clusters, labels, binary_seg_ret, lane_coordinate):
     else:
         cluster_index = range(num_clusters)
 
+    # NEW CODE: Order lanes by x-position (left to right)
+    ordered_clusters = []
+    for ci in cluster_index:
+        idx = np.where(labels == ci)
+        if len(idx[0]) == 0:
+            continue
+        
+        # Get coordinates for this cluster
+        coord = lane_coordinate[idx]
+        
+        # Calculate average x position (using the bottom third of the lane)
+        bottom_y_threshold = binary_seg_ret.shape[0] * 0.7  # Bottom 30% of image
+        bottom_points = [pt[1] for pt in coord if pt[0] > bottom_y_threshold]
+        
+        if bottom_points:
+            avg_x = sum(bottom_points) / len(bottom_points)
+            ordered_clusters.append((ci, avg_x))
+    
+    # Sort clusters by x-position (left to right)
+    ordered_clusters.sort(key=lambda x: x[1])
+    
+    # Get sorted cluster indices
+    if ordered_clusters:
+        cluster_index = [cluster[0] for cluster in ordered_clusters]
+
+    # Rest of your existing code
     mask_image = np.zeros(
         shape=[
             binary_seg_ret.shape[0],
@@ -195,7 +221,7 @@ def get_lane_mask(num_clusters, labels, binary_seg_ret, lane_coordinate):
     return mask_image
 
 # Open video
-cap = cv2.VideoCapture("assets/road3.mp4")
+cap = cv2.VideoCapture("assets/seame_data.mp4")
 
 while True:
     ret, frame = cap.read()
@@ -215,7 +241,11 @@ while True:
         bin_pred = bin_preds[0].data.cpu().numpy()  
         ins_img = ins_preds[0].data.cpu().numpy()
         bin_img = bin_pred.argmax(0)
-        bin_img = postprocess(bin_img)
+
+        lane_prob = bin_pred[1]
+        bin_img_raw = (lane_prob > 0.5).astype(np.uint8)
+
+        bin_img = postprocess(bin_img_raw, kernel_size=5, minarea_threshold=20)
 
         lane_embedding_feats, lane_coordinate = get_lane_area(
                         bin_img, ins_img)
@@ -234,19 +264,16 @@ while True:
         overlay_img = cv2.addWeighted(frame, 1.0, mask_img, 1.0, 0)
         cv2.imshow("Lane Detection", overlay_img)
 
-        lane_prob = bin_pred[1]
-        bin_img_raw = (lane_prob > 0.2).astype(np.uint8)
+        # # Apply post-processing to clean up the mask
+        # res = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
 
-        # Apply post-processing to clean up the mask
-        res = postprocess(bin_img_raw, kernel_size=7, minarea_threshold=30)
-
-        bin_viz = np.zeros_like(frame)
-        print(frame[0])
-        bin_resized = cv2.resize(res * 255, (frame.shape[1], frame.shape[0]), 
-                            interpolation=cv2.INTER_NEAREST)
-        bin_viz[:,:,1] = bin_resized  # Show in green channel
-        overlay_img = cv2.addWeighted(frame, 1.0, bin_viz, 1.0, 0)
-        cv2.imshow("Binary Lane Mask", overlay_img)
+        # bin_viz = np.zeros_like(frame)
+        # print(frame[0])
+        # bin_resized = cv2.resize(res * 255, (frame.shape[1], frame.shape[0]), 
+        #                     interpolation=cv2.INTER_NEAREST)
+        # bin_viz[:,:,1] = bin_resized  # Show in green channel
+        # overlay_img = cv2.addWeighted(frame, 1.0, bin_viz, 1.0, 0)
+        # cv2.imshow("Binary Lane Mask", overlay_img)
     
     # Break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):

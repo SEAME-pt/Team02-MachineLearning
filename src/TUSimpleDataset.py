@@ -48,7 +48,6 @@ def get_instance_labels(height, width, pts, thickness=5, max_lanes=5):
             max Lanes x H x W, number of actual lanes
     """
     if len(pts) > max_lanes:
-        #logger.warning('More than 5 lanes: %s', len(pts))
         pts = pts[:max_lanes]
 
     ins_labels = np.zeros(shape=[0, height, width], dtype=np.uint8)
@@ -174,7 +173,7 @@ class TuSimpleDataset(Dataset):
                 for (x, y) in lane] for lane in pts]
 
         bin_labels = get_binary_labels(self.height, self.width, pts, thickness=self.thickness)
-        instance_labels, n_lanes = get_instance_labels(self.height, self.width, pts, thickness=self.thickness, max_lanes=5)
+        instance_labels, n_lanes = get_instance_labels(self.height, self.width, pts, thickness=self.thickness, max_lanes=4)
 
         # if self.is_train:
         #     image, bin_labels, instance_labels = self.augmentation(image, bin_labels, instance_labels)
