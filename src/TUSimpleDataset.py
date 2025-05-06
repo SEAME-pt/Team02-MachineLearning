@@ -175,11 +175,11 @@ class TuSimpleDataset(Dataset):
         bin_labels = get_binary_labels(self.height, self.width, pts, thickness=self.thickness)
         instance_labels, n_lanes = get_instance_labels(self.height, self.width, pts, thickness=self.thickness, max_lanes=4)
 
-        # if self.is_train:
-        #     image, bin_labels, instance_labels = self.augmentation(image, bin_labels, instance_labels)
-        #     return image, bin_labels, instance_labels, n_lanes
-        # else:
-        image = self.transform(image)
-        bin_labels = torch.Tensor(bin_labels)
-        instance_labels = torch.Tensor(instance_labels)
-        return image, bin_labels, instance_labels, n_lanes
+        if self.is_train:
+            image, bin_labels, instance_labels = self.augmentation(image, bin_labels, instance_labels)
+            return image, bin_labels, instance_labels, n_lanes
+        else:
+            image = self.transform(image)
+            bin_labels = torch.Tensor(bin_labels)
+            instance_labels = torch.Tensor(instance_labels)
+            return image, bin_labels, instance_labels, n_lanes

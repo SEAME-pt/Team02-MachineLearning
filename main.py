@@ -99,10 +99,10 @@ def main():
     
     # Initialize model
     model = UNet().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=1.5e-4)
+    optimizer = optim.Adam(model.parameters(), lr=3e-4)
     
     # Train model
-    model = train_model(model, train_loader, optimizer, device, epochs=100)
+    model = train_model(model, train_loader, optimizer, device, epochs=200)
 
 if __name__ == '__main__':
     main()

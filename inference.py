@@ -25,7 +25,7 @@ input_size = (256, 128)
 
 # Load the trained model
 model = UNet().to(device)
-model.load_state_dict(torch.load('Models/lane/lane_unet5_ins_ce_epoch_100.pth', map_location=device))
+model.load_state_dict(torch.load('Models/lane/lane_unet8_ins_ce_epoch_180.pth', map_location=device))
 model.eval()
 
 # Image preprocessing function
@@ -221,7 +221,7 @@ def get_lane_mask(num_clusters, labels, binary_seg_ret, lane_coordinate):
     return mask_image
 
 # Open video
-cap = cv2.VideoCapture("assets/seame_data.mp4")
+cap = cv2.VideoCapture("assets/road3.mp4")
 
 while True:
     ret, frame = cap.read()

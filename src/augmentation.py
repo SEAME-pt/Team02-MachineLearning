@@ -22,28 +22,21 @@ class LaneDetectionAugmentation:
             A.OneOf([
                 # Shift lanes heavily to the left
                 A.Affine(
-                    translate_percent={"x": (-0.35, -0.15), "y": (0, 0)},
-                    scale=1.0,
+                    translate_percent={"x": (-0.05, -0.02), "y": (0, 0)},
+                    scale=0.5,
                     rotate=0,
                     p=1.0
                 ),
                 # Shift lanes heavily to the right
                 A.Affine(
-                    translate_percent={"x": (0.15, 0.35), "y": (0, 0)},
-                    scale=1.0,
+                    translate_percent={"x": (0.02, 0.05), "y": (0, 0)},
+                    scale=0.5,
                     rotate=0,
                     p=1.0
                 ),
-                # Center the lanes with variable position
-                A.Affine(
-                    translate_percent={"x": (-0.1, 0.1), "y": (0, 0)},
-                    scale=(0.9, 1.1),  # Add some scaling variation 
-                    rotate=(-5, 5),    # Add slight rotation
-                    p=1.0
-                ),
-            ], p=0.8),
+            ], p=0.5),
 
-            A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-80, 80), p=0.5),
+            # A.Affine(scale=(0.95, 1.05), translate_percent=0.05, rotate=(-80, 80), p=0.5),
             
             # Moderate color transforms
             A.OneOf([
@@ -53,7 +46,7 @@ class LaneDetectionAugmentation:
             ], p=0.5),
             
             # Mild perspective transform to simulate camera angle changes
-            A.Perspective(scale=(0.05, 0.15), keep_size=True, fit_output=True, p=0.5),
+            A.Perspective(scale=(0.03, 0.08), keep_size=True, fit_output=True, p=0.5),
             
             # Light blur to simulate motion/focus issues
             A.OneOf([
@@ -72,43 +65,32 @@ class LaneDetectionAugmentation:
         Apply augmentation to image and masks
         
         Args:
-            image: RGB image
-            binary_mask: Binary mask (H, W) or (1, H, W) as numpy array
+            image: RGB image (H, W, 3)
+            binary_mask: Binary mask (2, H, W) 
             instance_mask: Instance segmentation mask (max_lanes, H, W)
-            
-        Returns:
-            Augmented image and masks
         """
-        # Check dimensions and handle appropriately
-         # If mask has a channel dimension, remove it for albumentations
-        if len(binary_mask.shape) == 3 and binary_mask.shape[0] == 1:
-            binary_mask = binary_mask.squeeze(0)  # Remove channel dimension
+        # Transpose masks from CHW to HWC format for Albumentations
+        binary_mask_transposed = binary_mask.transpose(1, 2, 0)  # (2, H, W) -> (H, W, 2)
+        instance_mask_transposed = instance_mask.transpose(1, 2, 0)  # (4, H, W) -> (H, W, 4)
         
-        # For instance mask, transpose if needed
-        if instance_mask.ndim == 3:  # (max_lanes, H, W)
-            instance_mask_transposed = instance_mask.transpose(1, 2, 0)
-        else:
-            instance_mask_transposed = instance_mask
-        
+        # Apply transforms
         transformed = self.transform(
             image=image,
-            mask=binary_mask,
+            mask=binary_mask_transposed,
             mask1=instance_mask_transposed
         )
         
-        # Get the augmented data
-        aug_image = transformed['image']
-        aug_binary_mask = transformed['mask']
-        aug_instance_mask = transformed['mask1']
+        # Get the augmented data (already in tensor format from ToTensorV2)
+        aug_image = transformed['image']  # Will be (3, H, W)
         
-        # Handle masks based on their original dimensions
-        if len(aug_binary_mask.shape) == 2:
-            aug_binary_mask = aug_binary_mask.unsqueeze(0)
-        
-        if instance_mask.ndim == 3:
-            if isinstance(aug_instance_mask, torch.Tensor):
-                aug_instance_mask = aug_instance_mask.permute(2, 0, 1)
-            else:
-                aug_instance_mask = aug_instance_mask.transpose(2, 0, 1)
+        # Convert masks back to CHW format for PyTorch
+        if isinstance(transformed['mask'], np.ndarray):
+            # For NumPy arrays
+            aug_binary_mask = torch.from_numpy(transformed['mask'].transpose(2, 0, 1))
+            aug_instance_mask = torch.from_numpy(transformed['mask1'].transpose(2, 0, 1))
+        else:
+            # For tensors (already transposed by ToTensorV2)
+            aug_binary_mask = transformed['mask'].permute(2, 0, 1)
+            aug_instance_mask = transformed['mask1'].permute(2, 0, 1)
         
         return aug_image, aug_binary_mask, aug_instance_mask

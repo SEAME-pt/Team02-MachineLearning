@@ -64,6 +64,6 @@ def train_model(model, train_loader, optimizer, device, epochs=10):
         print(f"  Average Loss: {avg_loss:.4f}")
         
         # Save model
-        torch.save(model.state_dict(), f'Models/lane/lane_unet5_ins_ce_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'Models/lane/lane_unet9_ins_ce_epoch_{epoch+1}.pth')
     
     return model                                                                                                               
