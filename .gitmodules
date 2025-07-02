@@ -4,3 +4,6 @@
 [submodule "ObjectDetection"]
 	path = ObjectDetection
 	url = git@github.com:SEAME-pt/Team02-ObjectDetection.git
+[submodule "TrafficSignRecognition"]
+	path = TrafficSignRecognition
+	url = git@github.com:SEAME-pt/Team02-TrafficSignRecognition.git
