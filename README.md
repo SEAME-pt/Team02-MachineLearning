@@ -16,6 +16,7 @@ This repository serves as a collection of machine learning solutions for various
 MachineLearning/
 ├── LaneDetection/     # Lane detection models and algorithms
 ├── ObjectDetection/   # Object detection and classification models
+├── TrafficSignRecognition/   # Traffic Signs and Traffic Lights classification models
 └── README.md         # This documentation file
 ```
 
