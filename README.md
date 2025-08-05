@@ -8,6 +8,7 @@ This repository serves as a collection of machine learning solutions for various
 
 - Lane Detection: Computer vision and ML algorithms for identifying lane markings
 - Object Detection: Detection and classification of various objects (vehicles, pedestrians, traffic signs, etc.)
+- Traffic Sign Recognition: Image Classifier model to make the classification of traffic signs and traffic lights (red, green, yellow, 50 km/h, 80 km/h, yield, stop, crosswalk, danger)
 
 ## Repository Structure
 
@@ -27,6 +28,10 @@ The Lane Detection module contains models and tools for identifying lane marking
 ### Object Detection
 
 The Object Detection module provides models for detecting, classifying, and tracking various objects relevant to autonomous driving scenarios.
+
+### Traffic Sign Recognition
+
+The Traffic Sign Recognition module provides models for classifying signs and traffic lights,relevant to autonomous driving scenarios.
 
 ## Getting Started
 
